@@ -15,6 +15,8 @@ function setup() {
 	camera.y = 0;
 	frameRate(120);
 	createIcons();
+
+    loadTile(0, 0, 0, true);
 }
 
 function draw() {
@@ -206,8 +208,6 @@ async function loadTile(lod, tx, ty, loadIfUncached = true) {
 }
 
 function drawTile(tx, ty, lod, x, y, size, loadIfUncached = true, loadingForLowQual = false) {
-	loadTile(lod, tx, ty, loadIfUncached);
-
 	const key = tileKey(tx, ty, lod);
 	const tile = tileCache[key];
 
