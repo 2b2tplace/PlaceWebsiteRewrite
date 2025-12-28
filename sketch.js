@@ -13,7 +13,7 @@ function setup() {
 	camera.on();
 	camera.x = 0;
 	camera.y = 0;
-	frameRate(120);
+	frameRate(60);
 	createIcons();
     noSmooth();
 
@@ -84,6 +84,22 @@ function draw() {
 	// }
 
     drawTile(0, 0, 0, 0, 0, 512);
+
+	// map panning logic
+	if (mouse.presses()) {
+		originalMouseX = mouseX;
+		originalMouseY = mouseY;
+		originalCameraX = camera.x;
+		originalCameraY = camera.y;
+	}
+	if (mouseIsPressed) {
+		camera.x = (originalCameraX + ((originalMouseX - mouseX) / camera.zoom));
+		camera.y = (originalCameraY + ((originalMouseY - mouseY) / camera.zoom));
+	}
+
+	// reset mouse scroll
+	mouseScrollX = 0;
+	mouseScrollY = 0;
 }
 
 function mouseWheel(event) {
@@ -126,21 +142,6 @@ function update() {
 		camera.y += mouseScrollY / camera.zoom;
 		cameraVel = 0;
 	}
-    // map panning logic
-    if (mouse.presses()) {
-        originalMouseX = mouseX;
-        originalMouseY = mouseY;
-        originalCameraX = camera.x;
-        originalCameraY = camera.y;
-    }
-    if (mouseIsPressed) {
-        camera.x = (originalCameraX + ((originalMouseX - mouseX) / camera.zoom));
-        camera.y = (originalCameraY + ((originalMouseY - mouseY) / camera.zoom));
-    }
-
-    // reset mouse scroll
-    mouseScrollX = 0;
-    mouseScrollY = 0;
 }
 
 function windowResized() {
