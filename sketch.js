@@ -226,66 +226,66 @@ function drawTile(tx, ty, lod, x, y, size, loadIfUncached = true, loadingForLowQ
 		return;
 	}
 
-	let parentLod = lod + 1;
-    const maxFallbackLod = 10; 
-    let drawnFallback = false;
-
-    while (parentLod <= maxFallbackLod) {
-        const lodGap = parentLod - lod;
-        const scaleDiff = 1 << lodGap;
-
-        const pTx = Math.floor(tx / scaleDiff);
-        const pTy = Math.floor(ty / scaleDiff);
-        const pKey = tileKey(pTx, pTy, parentLod);
-        
-        const pTile = tileCache[pKey];
-
-        if (pTile && pTile.loaded && pTile.imgBase) {
-            const offsetX = tx - (pTx * scaleDiff);
-            const offsetY = ty - (pTy * scaleDiff);
-
-            const sSize = 512 / scaleDiff; 
-            
-            let sX = Math.floor(offsetX * sSize);
-            let sY = Math.floor(offsetY * sSize);
-            let sW = Math.ceil(sSize);
-            let sH = Math.ceil(sSize);
-
-            if (sX < 0) sX = 0;
-            if (sY < 0) sY = 0;
-            if (sX + sW > 512) sW = 512 - sX;
-            if (sY + sH > 512) sH = 512 - sY;
-
-            if (sW > 0 && sH > 0) {
-                image(pTile.imgBase, x, y, size, size, sX, sY, sW, sH);
-                
-                if (pTile.imgOverlay) {
-                    image(pTile.imgOverlay, x, y, size, size, sX, sY, sW, sH);
-                }
-                
-                drawnFallback = true;
-				tileCache[pKey].timestamp = Date.now();
-                break;
-            }
-        }
-        parentLod++;
-    }
-
-	if (!loadingForLowQual && lod > 0) {
-		const childLod = lod - 1;
-		const childSize = size / 2;
-		const childTx = tx * 2;
-		const childTy = ty * 2;
-
-		drawTile(childTx, childTy, childLod, x, y, childSize, false, true);
-		drawTile(childTx + 1, childTy, childLod, x + childSize, y, childSize, false, true);
-		drawTile(childTx, childTy + 1, childLod, x, y + childSize, childSize, false, true);
-		drawTile(childTx + 1, childTy + 1, childLod, x + childSize, y + childSize, childSize, false, true);
-	}
-
-	if (tile && tile.loading && Date.now() - tile.timestamp > 5000) {
-		// image(loadImage('/errortile.png'), x, y, size, size);
-	}
+	// let parentLod = lod + 1;
+    // const maxFallbackLod = 10;
+    // let drawnFallback = false;
+    //
+    // while (parentLod <= maxFallbackLod) {
+    //     const lodGap = parentLod - lod;
+    //     const scaleDiff = 1 << lodGap;
+    //
+    //     const pTx = Math.floor(tx / scaleDiff);
+    //     const pTy = Math.floor(ty / scaleDiff);
+    //     const pKey = tileKey(pTx, pTy, parentLod);
+    //
+    //     const pTile = tileCache[pKey];
+    //
+    //     if (pTile && pTile.loaded && pTile.imgBase) {
+    //         const offsetX = tx - (pTx * scaleDiff);
+    //         const offsetY = ty - (pTy * scaleDiff);
+    //
+    //         const sSize = 512 / scaleDiff;
+    //
+    //         let sX = Math.floor(offsetX * sSize);
+    //         let sY = Math.floor(offsetY * sSize);
+    //         let sW = Math.ceil(sSize);
+    //         let sH = Math.ceil(sSize);
+    //
+    //         if (sX < 0) sX = 0;
+    //         if (sY < 0) sY = 0;
+    //         if (sX + sW > 512) sW = 512 - sX;
+    //         if (sY + sH > 512) sH = 512 - sY;
+    //
+    //         if (sW > 0 && sH > 0) {
+    //             image(pTile.imgBase, x, y, size, size, sX, sY, sW, sH);
+    //
+    //             if (pTile.imgOverlay) {
+    //                 image(pTile.imgOverlay, x, y, size, size, sX, sY, sW, sH);
+    //             }
+    //
+    //             drawnFallback = true;
+	// 			tileCache[pKey].timestamp = Date.now();
+    //             break;
+    //         }
+    //     }
+    //     parentLod++;
+    // }
+    //
+	// if (!loadingForLowQual && lod > 0) {
+	// 	const childLod = lod - 1;
+	// 	const childSize = size / 2;
+	// 	const childTx = tx * 2;
+	// 	const childTy = ty * 2;
+    //
+	// 	drawTile(childTx, childTy, childLod, x, y, childSize, false, true);
+	// 	drawTile(childTx + 1, childTy, childLod, x + childSize, y, childSize, false, true);
+	// 	drawTile(childTx, childTy + 1, childLod, x, y + childSize, childSize, false, true);
+	// 	drawTile(childTx + 1, childTy + 1, childLod, x + childSize, y + childSize, childSize, false, true);
+	// }
+    //
+	// if (tile && tile.loading && Date.now() - tile.timestamp > 5000) {
+	// 	// image(loadImage('/errortile.png'), x, y, size, size);
+	// }
 }
 
 function pruneCache() {
