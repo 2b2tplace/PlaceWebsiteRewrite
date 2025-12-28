@@ -7,15 +7,8 @@ let isTrackpad = false;
 let mouseScrollX = 0, mouseScrollY = 0;
 let uiElements = {}
 
-let tileBuffer;
-
 function setup() {
 	createCanvas(windowWidth, windowHeight, WEBGL);
-    tileBuffer = createGraphics(windowWidth, windowHeight);
-
-    noSmooth();
-    noStroke();
-
 	camera.on();
 	camera.x = 0;
 	camera.y = 0;
@@ -27,10 +20,7 @@ function draw() {
 	// clear canvas
 	background('black');
 	camera.on();
-
-    tileBuffer.clear();
-    tileBuffer.push();
-
+	noSmooth();
 	const t = (Math.log(55) - Math.log(camera.zoom)) / (Math.log(55) - Math.log(0.009));
 	// 1.6 gives bias towards the lower lods (~ 10)
 	if (cameraVel >= 0) lod = Math.floor(Math.pow(t, 2) * 8.5);
@@ -106,9 +96,6 @@ function draw() {
 	// reset mouse scroll 
 	mouseScrollX = 0;
 	mouseScrollY = 0;
-
-    tileBuffer.pop();
-    image(tileBuffer, 0, 0);
 }
 
 function mouseWheel(event) {
@@ -221,11 +208,12 @@ function drawTile(tx, ty, lod, x, y, size, loadIfUncached = true, loadingForLowQ
 	if (tile && tile.loaded && tile.imgBase) {
 		tile.timestamp = Date.now();
 
-		tileBuffer.fill('black');
-		tileBuffer.rect(x, y, size, size);
-		tileBuffer.image(tile.imgBase, x, y, size, size);
+		fill('black');
+		noStroke();
+		rect(x, y, size, size);
+		image(tile.imgBase, x, y, size, size);
 		if (tile.imgOverlay) {
-			tileBuffer.image(tile.imgOverlay, x, y, size, size)
+			image(tile.imgOverlay, x, y, size, size)
 		}
 		return;
 	}
@@ -261,10 +249,10 @@ function drawTile(tx, ty, lod, x, y, size, loadIfUncached = true, loadingForLowQ
             if (sY + sH > 512) sH = 512 - sY;
 
             if (sW > 0 && sH > 0) {
-                tileBuffer.image(pTile.imgBase, x, y, size, size, sX, sY, sW, sH);
+                image(pTile.imgBase, x, y, size, size, sX, sY, sW, sH);
                 
                 if (pTile.imgOverlay) {
-                    tileBuffer.image(pTile.imgOverlay, x, y, size, size, sX, sY, sW, sH);
+                    image(pTile.imgOverlay, x, y, size, size, sX, sY, sW, sH);
                 }
                 
                 drawnFallback = true;
@@ -288,7 +276,7 @@ function drawTile(tx, ty, lod, x, y, size, loadIfUncached = true, loadingForLowQ
 	}
 
 	if (tile && tile.loading && Date.now() - tile.timestamp > 5000) {
-		// tileBuffer.image(loadImage('/errortile.png'), x, y, size, size);
+		// image(loadImage('/errortile.png'), x, y, size, size);
 	}
 }
 
