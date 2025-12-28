@@ -15,6 +15,7 @@ function setup() {
 	camera.y = 0;
 	frameRate(120);
 	createIcons();
+    noSmooth();
 
     loadTile(0, 0, 0, true);
 }
@@ -22,8 +23,7 @@ function setup() {
 function draw() {
 	// clear canvas
 	background('black');
-	camera.on();
-	noSmooth();
+	//camera.on();
     // tilesToDraw.length = 0;
 	// const t = (Math.log(55) - Math.log(camera.zoom)) / (Math.log(55) - Math.log(0.009));
 	// // 1.6 gives bias towards the lower lods (~ 10)
