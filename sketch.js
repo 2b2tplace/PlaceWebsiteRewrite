@@ -208,9 +208,9 @@ function drawTile(tx, ty, lod, x, y, size, loadIfUncached = true, loadingForLowQ
 	if (tile && tile.loaded && tile.imgBase) {
 		tile.timestamp = Date.now();
 		
-		fill('black');
-		noStroke();
-		rect(x, y, size, size);
+		// fill('black');
+		// noStroke();
+		// rect(x, y, size, size);
 		image(tile.imgBase, x, y, size, size);
 		if (tile.imgOverlay) {
 			image(tile.imgOverlay, x, y, size, size)
