@@ -11,7 +11,7 @@ let tileBuffer;
 
 function setup() {
 	createCanvas(windowWidth, windowHeight, WEBGL);
-    tileBuffer = createGraphics(windowWidth, windowHeight, WEBGL);
+    tileBuffer = createGraphics(windowWidth, windowHeight);
 
     noSmooth();
     noStroke();
