@@ -170,8 +170,8 @@ async function loadTile(lod, tx, ty, loadIfUncached = true) {
 		timestamp: Date.now()
 	}
 
-	const sx = Math.floor(tx / 32);
-	const sy = Math.floor(ty / 32);
+	const sx = (tx / 16) >> 0;
+	const sy = (ty / 16) >> 0;
 
 	const urlBase = `tiles/base/${lod}/0/${sx}/${sy}/t.${tx}.${ty}.webp`;
 	const urlOverlay = `tiles/overlay/${lod}/0/${sx}/${sy}/t.${tx}.${ty}.webp`;
