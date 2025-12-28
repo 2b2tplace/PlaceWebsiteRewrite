@@ -51,7 +51,7 @@ function draw() {
 	// to load tiles from center of screen instead of top left to bottom right
 	const centerX = (topLeftTileX + bottomRightTileX) / 2;
 	const centerY = (topLeftTileY + bottomRightTileY) / 2;
-	const tilesToDraw = [];
+	//const tilesToDraw = [];
 
 	for (let j = 0; j < (bottomRightTileY - topLeftTileY) + 1; j++) {
 		for (let i = 0; i < (bottomRightTileX - topLeftTileX) + 1; i++) {
@@ -61,20 +61,25 @@ function draw() {
 			// no need to sqrt because i dont need perfect distance calc
 			const dx = tx - centerX;
 			const dy = ty - centerY;
-			const dist = dx ** 2 + dy ** 2;
+			// const dist = dx ** 2 + dy ** 2;
 
-			tilesToDraw.push({ tx, ty, dist });
+            const drawX = tx * tileSize;
+            const drawY = ty * tileSize;
+            // if the camera zoom is changing, don't try and load the tile if it's not cached.
+            const cameraSpeedThreshold = cameraVel == 0;
+            drawTile(tx, ty, lod, drawX, drawY, tileSize, cameraSpeedThreshold, false);
+			//tilesToDraw.push({ tx, ty, dist });
 		}
 	}
-	// sort by general distance and draw
-	tilesToDraw.sort((a, b) => a.dist - b.dist);
-	tilesToDraw.forEach(tile => {
-		const drawX = tile.tx * tileSize;
-		const drawY = tile.ty * tileSize;
-		// if the camera zoom is changing, don't try and load the tile if it's not cached.
-		const cameraSpeedThreshold = cameraVel == 0;
-		drawTile(tile.tx, tile.ty, lod, drawX, drawY, tileSize, cameraSpeedThreshold, false);
-	});
+	// // sort by general distance and draw
+	// tilesToDraw.sort((a, b) => a.dist - b.dist);
+	// tilesToDraw.forEach(tile => {
+	// 	const drawX = tile.tx * tileSize;
+	// 	const drawY = tile.ty * tileSize;
+	// 	// if the camera zoom is changing, don't try and load the tile if it's not cached.
+	// 	const cameraSpeedThreshold = cameraVel == 0;
+	// 	drawTile(tile.tx, tile.ty, lod, drawX, drawY, tileSize, cameraSpeedThreshold, false);
+	// });
 
 	if (frameCount % 120 == 0) {
 		pruneCache();
