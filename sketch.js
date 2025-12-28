@@ -205,6 +205,7 @@ async function loadTile(lod, tx, ty, loadIfUncached = true) {
 }
 
 function drawTile(tx, ty, lod, x, y, size, loadIfUncached = true, loadingForLowQual = false) {
+    imageDrawCalls++;
 	loadTile(lod, tx, ty, loadIfUncached);
 
 	const key = `${lod}_${tx}_${ty}`;
@@ -220,7 +221,6 @@ function drawTile(tx, ty, lod, x, y, size, loadIfUncached = true, loadingForLowQ
 		if (tile.imgOverlay) {
 			image(tile.imgOverlay, x, y, size, size)
 		}
-        imageDrawCalls++;
 		return;
 	}
 
