@@ -99,6 +99,8 @@ function draw() {
 	// reset mouse scroll 
 	mouseScrollX = 0;
 	mouseScrollY = 0;
+
+    console.log(`imageDrawCalls: ${imageDrawCalls}`);
 }
 
 function mouseWheel(event) {
