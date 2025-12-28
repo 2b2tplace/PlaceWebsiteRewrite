@@ -179,7 +179,7 @@ async function loadTile(lod, tx, ty, loadIfUncached = true) {
 	try {
 		const [base, overlay] = await Promise.all([
 			loadImageAsync(urlBase),
-			loadImageAsync(urlOverlay)
+			//loadImageAsync(urlOverlay)
 		]);
 
 		if (tileCache[key]) {
