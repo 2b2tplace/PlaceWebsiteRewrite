@@ -20,13 +20,14 @@ function draw() {
 	// clear canvas
 	background('black');
 	camera.on();
+	noSmooth();
 	const t = (Math.log(55) - Math.log(camera.zoom)) / (Math.log(55) - Math.log(0.009));
 	// 1.6 gives bias towards the lower lods (~ 10)
-	if (cameraVel >= 0) lod = Math.floor(Math.pow(t, 1.6) * 10);
-	const tileSize = 100 * 2 ** lod
+	if (cameraVel >= 0) lod = Math.floor(Math.pow(t, 2) * 8.5);
+	const tileSize = 512 * 2 ** lod
 	const borderLod = (lod + 1) > 10 ? 10 : lod + 1;
 	if (borderLod !== lod) {
-		const borderTileSize = 100 * 2 ** borderLod;
+		const borderTileSize = 512 * 2 ** borderLod;
 		const borderPadding = 1;
 
 		const borderTLX = Math.floor((camera.x - halfWidth / camera.zoom) / borderTileSize) - borderPadding;
@@ -122,7 +123,7 @@ function update() {
 		);
 		// clamp in log space
 		const logZoom = Math.log(intendedCamZoom);
-		const clampedLogZoom = Math.min(4, Math.max(-5, logZoom));
+		const clampedLogZoom = Math.min(4, Math.max(-7, logZoom));
 		// convert back
 		intendedCamZoom = Math.exp(clampedLogZoom);
 		cameraVel = camera.zoom;
@@ -136,11 +137,6 @@ function update() {
 		camera.x += mouseScrollX / camera.zoom;
 		camera.y += mouseScrollY / camera.zoom;
 		cameraVel = 0;
-	}
-	if (camera.zoom > 0.025) {
-		noSmooth();
-	} else {
-		smooth();
 	}
 }
 
