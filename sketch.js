@@ -26,23 +26,23 @@ function draw() {
 	if (cameraVel >= 0) lod = Math.floor(Math.pow(t, 2) * 8.5);
 	const tileSize = 512 * 2 ** lod
 	const borderLod = (lod + 1) > 10 ? 10 : lod + 1;
-	if (borderLod !== lod) {
-		const borderTileSize = 512 * 2 ** borderLod;
-		const borderPadding = 1;
-
-		const borderTLX = Math.floor((camera.x - halfWidth / camera.zoom) / borderTileSize) - borderPadding;
-		const borderTLY = Math.floor((camera.y - halfHeight / camera.zoom) / borderTileSize) - borderPadding;
-		const borderBRX = Math.floor((camera.x + halfWidth / camera.zoom) / borderTileSize) + borderPadding;
-		const borderBRY = Math.floor((camera.y + halfHeight / camera.zoom) / borderTileSize) + borderPadding;
-
-		for (let j = borderTLY; j <= borderBRY; j++) {
-			for (let i = borderTLX; i <= borderBRX; i++) {
-				const drawX = i * borderTileSize;
-				const drawY = j * borderTileSize;
-				drawTile(i, j, borderLod, drawX, drawY, borderTileSize, true, true);
-			}
-		}
-	}
+	// if (borderLod !== lod) {
+	// 	const borderTileSize = 512 * 2 ** borderLod;
+	// 	const borderPadding = 1;
+    //
+	// 	const borderTLX = Math.floor((camera.x - halfWidth / camera.zoom) / borderTileSize) - borderPadding;
+	// 	const borderTLY = Math.floor((camera.y - halfHeight / camera.zoom) / borderTileSize) - borderPadding;
+	// 	const borderBRX = Math.floor((camera.x + halfWidth / camera.zoom) / borderTileSize) + borderPadding;
+	// 	const borderBRY = Math.floor((camera.y + halfHeight / camera.zoom) / borderTileSize) + borderPadding;
+    //
+	// 	for (let j = borderTLY; j <= borderBRY; j++) {
+	// 		for (let i = borderTLX; i <= borderBRX; i++) {
+	// 			const drawX = i * borderTileSize;
+	// 			const drawY = j * borderTileSize;
+	// 			drawTile(i, j, borderLod, drawX, drawY, borderTileSize, true, true);
+	// 		}
+	// 	}
+	// }
 
 	const topLeftTileX = Math.floor((camera.x - halfWidth / camera.zoom) / tileSize);
 	const topLeftTileY = Math.floor((camera.y - halfHeight / camera.zoom) / tileSize);
@@ -52,7 +52,6 @@ function draw() {
 	const centerX = (topLeftTileX + bottomRightTileX) / 2;
 	const centerY = (topLeftTileY + bottomRightTileY) / 2;
 	const tilesToDraw = [];
-
 
 	for (let j = 0; j < (bottomRightTileY - topLeftTileY) + 1; j++) {
 		for (let i = 0; i < (bottomRightTileX - topLeftTileX) + 1; i++) {
