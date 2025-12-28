@@ -13,7 +13,7 @@ function setup() {
 	camera.on();
 	camera.x = 0;
 	camera.y = 0;
-	frameRate(30);
+	frameRate(120);
 	createIcons();
 }
 
@@ -77,7 +77,7 @@ function draw() {
 		drawTile(tile.tx, tile.ty, lod, drawX, drawY, tileSize, cameraSpeedThreshold, false);
 	});
 
-	if (frameCount % 30 == 0) {
+	if (frameCount % 120 == 0) {
 		pruneCache();
 	}
 
