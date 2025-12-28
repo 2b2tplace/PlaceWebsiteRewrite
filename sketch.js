@@ -179,7 +179,7 @@ async function loadTile(lod, tx, ty, loadIfUncached = true) {
 	try {
 		const [base, overlay] = await Promise.all([
 			loadImageAsync(urlBase),
-			//loadImageAsync(urlOverlay)
+			loadImageAsync(urlOverlay)
 		]);
 
 		if (tileCache[key]) {
@@ -188,12 +188,8 @@ async function loadTile(lod, tx, ty, loadIfUncached = true) {
 				tileCache[key].imgOverlay = overlay
 				tileCache[key].loaded = true;
 				tileCache[key].loading = false;
-
-                console.log(`Loaded base tile ${urlBase}`);
 			} else {
 				tileCache[key].loading = false;
-
-                console.log(`Failed to load base tile ${urlBase}`);
 			}
 		}
 	} catch (err) {
@@ -267,17 +263,17 @@ function drawTile(tx, ty, lod, x, y, size, loadIfUncached = true, loadingForLowQ
         parentLod++;
     }
 
-	if (!loadingForLowQual && lod > 0) {
-		const childLod = lod - 1;
-		const childSize = size / 2;
-		const childTx = tx * 2;
-		const childTy = ty * 2;
-
-		drawTile(childTx, childTy, childLod, x, y, childSize, false, true);
-		drawTile(childTx + 1, childTy, childLod, x + childSize, y, childSize, false, true);
-		drawTile(childTx, childTy + 1, childLod, x, y + childSize, childSize, false, true);
-		drawTile(childTx + 1, childTy + 1, childLod, x + childSize, y + childSize, childSize, false, true);
-	}
+	// if (!loadingForLowQual && lod > 0) {
+	// 	const childLod = lod - 1;
+	// 	const childSize = size / 2;
+	// 	const childTx = tx * 2;
+	// 	const childTy = ty * 2;
+    //
+	// 	drawTile(childTx, childTy, childLod, x, y, childSize, false, true);
+	// 	drawTile(childTx + 1, childTy, childLod, x + childSize, y, childSize, false, true);
+	// 	drawTile(childTx, childTy + 1, childLod, x, y + childSize, childSize, false, true);
+	// 	drawTile(childTx + 1, childTy + 1, childLod, x + childSize, y + childSize, childSize, false, true);
+	// }
 
 	if (tile && tile.loading && Date.now() - tile.timestamp > 5000) {
 		// image(loadImage('/errortile.png'), x, y, size, size);
