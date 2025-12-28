@@ -16,7 +16,7 @@ function setup() {
 	frameRate(120);
 	// createIcons();
 
-    loadTile(0, 0, 0);
+    // loadTile(0, 0, 0);
 }
 
 function draw() {
@@ -25,10 +25,8 @@ function draw() {
 	camera.on();
 	noSmooth();
 
-    const tile = tileCache[tileKey(0, 0, 0)];
-    if (tile) {
-        image(tile.imgBase, mouseX, mouseY, 512, 512);
-    }
+    fill('white');
+    rect(mouseX, mouseY, mouseX + 5, mouseY + 5);
     // tilesToDraw.length = 0;
 	// const t = (Math.log(55) - Math.log(camera.zoom)) / (Math.log(55) - Math.log(0.009));
 	// // 1.6 gives bias towards the lower lods (~ 10)
