@@ -156,8 +156,14 @@ function loadImageAsync(url) {
 	});
 }
 
+function tileKey(tileX, tileY, lod) {
+    return (BigInt(tileX & 0x1FFFFFF) << 32n)
+        | (BigInt(tileY & 0x1FFFFFF) << 7n)
+        | BigInt(lod & 0x7F);
+}
+
 async function loadTile(lod, tx, ty, loadIfUncached = true) {
-	const key = `${lod}_${tx}_${ty}`;
+	const key = tileKey(tx, ty, lod);
 
 	if (tileCache[key]) return;
 	if (!loadIfUncached) return;
@@ -202,7 +208,7 @@ async function loadTile(lod, tx, ty, loadIfUncached = true) {
 function drawTile(tx, ty, lod, x, y, size, loadIfUncached = true, loadingForLowQual = false) {
 	loadTile(lod, tx, ty, loadIfUncached);
 
-	const key = `${lod}_${tx}_${ty}`;
+	const key = tileKey(tx, ty, lod);
 	const tile = tileCache[key];
 
 	if (tile && tile.loaded && tile.imgBase) {
@@ -228,7 +234,7 @@ function drawTile(tx, ty, lod, x, y, size, loadIfUncached = true, loadingForLowQ
 
         const pTx = Math.floor(tx / scaleDiff);
         const pTy = Math.floor(ty / scaleDiff);
-        const pKey = `${parentLod}_${pTx}_${pTy}`;
+        const pKey = tileKey(pTx, pTy, parentLod);
         
         const pTile = tileCache[pKey];
 
