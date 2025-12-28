@@ -9,7 +9,7 @@ let uiElements = {}
 let tilesToDraw = [];
 
 function setup() {
-	createCanvas(windowWidth, windowHeight, WEBGPU);
+	createCanvas(windowWidth, windowHeight, WEBGL);
 	camera.on();
 	camera.x = 0;
 	camera.y = 0;
