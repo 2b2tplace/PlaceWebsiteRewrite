@@ -188,6 +188,8 @@ async function loadTile(lod, tx, ty, loadIfUncached = true) {
 				tileCache[key].imgOverlay = overlay
 				tileCache[key].loaded = true;
 				tileCache[key].loading = false;
+
+                console.log(`Loaded base tile ${urlBase}`);
 			} else {
 				tileCache[key].loading = false;
 			}
