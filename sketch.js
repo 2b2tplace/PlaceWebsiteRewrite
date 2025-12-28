@@ -16,10 +16,7 @@ function setup() {
 	createIcons();
 }
 
-let imageDrawCalls = 0;
-
 function draw() {
-    imageDrawCalls = 0;
 	// clear canvas
 	background('black');
 	camera.on();
@@ -99,8 +96,6 @@ function draw() {
 	// reset mouse scroll 
 	mouseScrollX = 0;
 	mouseScrollY = 0;
-
-    console.log(`imageDrawCalls: ${imageDrawCalls}`);
 }
 
 function mouseWheel(event) {
@@ -217,10 +212,8 @@ function drawTile(tx, ty, lod, x, y, size, loadIfUncached = true, loadingForLowQ
 		noStroke();
 		rect(x, y, size, size);
 		image(tile.imgBase, x, y, size, size);
-        imageDrawCalls++;
 		if (tile.imgOverlay) {
 			image(tile.imgOverlay, x, y, size, size)
-            imageDrawCalls++;
 		}
 		return;
 	}
@@ -257,11 +250,9 @@ function drawTile(tx, ty, lod, x, y, size, loadIfUncached = true, loadingForLowQ
 
             if (sW > 0 && sH > 0) {
                 image(pTile.imgBase, x, y, size, size, sX, sY, sW, sH);
-                imageDrawCalls++;
                 
                 if (pTile.imgOverlay) {
                     image(pTile.imgOverlay, x, y, size, size, sX, sY, sW, sH);
-                    imageDrawCalls++;
                 }
                 
                 drawnFallback = true;
