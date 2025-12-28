@@ -1,3 +1,3 @@
-# lets go]
+# lets go
 
-if thsi works then i am the bestest
+if this works then i am the bestest
