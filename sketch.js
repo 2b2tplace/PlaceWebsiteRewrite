@@ -9,7 +9,7 @@ let uiElements = {}
 let tilesToDraw = [];
 
 function setup() {
-	createCanvas(windowWidth, windowHeight);
+	createCanvas(windowWidth, windowHeight, C2D);
 	camera.on();
 	camera.x = 0;
 	camera.y = 0;
