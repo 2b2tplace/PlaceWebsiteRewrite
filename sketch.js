@@ -26,7 +26,7 @@ function draw() {
 	const t = (Math.log(55) - Math.log(camera.zoom)) / (Math.log(55) - Math.log(0.009));
 	// 1.6 gives bias towards the lower lods (~ 10)
 	if (cameraVel >= 0) lod = Math.floor(Math.pow(t, 2) * 8.5);
-	const tileSize = 512 * 2 ** lod
+	const tileSize = 512// * 2 ** lod
 	const borderLod = (lod + 1) > 10 ? 10 : lod + 1;
 	if (borderLod !== lod) {
 		const borderTileSize = 512 * 2 ** borderLod;
