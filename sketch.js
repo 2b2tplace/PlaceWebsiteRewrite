@@ -108,7 +108,7 @@ function draw() {
 	mouseScrollY = 0;
 
     tileBuffer.pop();
-    tileBuffer.draw();
+    // tileBuffer.draw();
 }
 
 function mouseWheel(event) {
