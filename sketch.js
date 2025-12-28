@@ -192,6 +192,8 @@ async function loadTile(lod, tx, ty, loadIfUncached = true) {
                 console.log(`Loaded base tile ${urlBase}`);
 			} else {
 				tileCache[key].loading = false;
+
+                console.log(`Failed to load base tile ${urlBase}`);
 			}
 		}
 	} catch (err) {
