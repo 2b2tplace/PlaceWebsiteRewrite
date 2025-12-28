@@ -9,7 +9,6 @@ let uiElements = {}
 
 function setup() {
 	createCanvas(windowWidth, windowHeight, WEBGL);
-	textFont(loadFont('pixelFont.ttf'));
 	camera.on();
 	camera.x = 0;
 	camera.y = 0;
@@ -153,32 +152,54 @@ function windowResized() {
 	camera.y = tempCamY;
 }
 
-function loadTile(lod, tx, ty, loadIfUncached = true) {
+function loadImageAsync(url) {
+	return new Promise((resolve, reject) => {
+		loadImage(url,
+			(img) => resolve(img)
+		);
+	});
+}
+
+async function loadTile(lod, tx, ty, loadIfUncached = true) {
 	const key = `${lod}_${tx}_${ty}`;
-	if (!tileCache[key] && loadIfUncached) {
-		tileCache[key] = {
-			imgBase: null,
-			imgOverlay: null,
-			loaded: false,
-			loading: true,
-			firstLoaded: null,
-			timestamp: Date.now()
-		}
-		const urlBase = `tiles/base/${lod}/0/0/0/t.${tx}.${ty}.webp`;
-		loadImage(urlBase, null, (img) => {
-			if (tileCache[key]) {
-				tileCache[key].imgBase = loadImage(urlBase)
+
+	if (tileCache[key]) return;
+	if (!loadIfUncached) return;
+
+	tileCache[key] = {
+		imgBase: null,
+		imgOverlay: null,
+		loaded: false,
+		loading: true,
+		timestamp: Date.now()
+	}
+
+	const sx = (tx / 32) >> 0;
+	const sy = (ty / 32) >> 0;
+
+	const urlBase = `tiles/base/${lod}/0/${sx}/${sy}/t.${tx}.${ty}.webp`;
+	const urlOverlay = `tiles/overlay/${lod}/0/${sx}/${sy}/t.${tx}.${ty}.webp`;
+
+	try {
+		const [base, overlay] = await Promise.all([
+			loadImageAsync(urlBase),
+			loadImageAsync(urlOverlay)
+		]);
+
+		if (tileCache[key]) {
+			if (base) {
+				tileCache[key].imgBase = base;
+				tileCache[key].imgOverlay = overlay
 				tileCache[key].loaded = true;
 				tileCache[key].loading = false;
-				tileCache[key].firstLoaded = Date.now();
+			} else {
+				tileCache[key].loading = false;
 			}
-		});
-		const urlOverlay = `tiles/overlay/${lod}/0/0/0/t.${tx}.${ty}.webp`;
-		loadImage(urlOverlay, null, (img) => {
-			if (tileCache[key]) {
-				tileCache[key].imgOverlay = loadImage(urlOverlay);
-			}
-		});
+		}
+	} catch (err) {
+		if (tileCache[key]) {
+			tileCache[key].error = true;
+		}
 	}
 }
 
@@ -186,9 +207,11 @@ function drawTile(tx, ty, lod, x, y, size, loadIfUncached = true, loadingForLowQ
 	loadTile(lod, tx, ty, loadIfUncached);
 
 	const key = `${lod}_${tx}_${ty}`;
-	const tile = tileCache[key]
+	const tile = tileCache[key];
+
 	if (tile && tile.loaded && tile.imgBase) {
 		tile.timestamp = Date.now();
+		
 		fill('black');
 		noStroke();
 		rect(x, y, size, size);
@@ -221,7 +244,7 @@ function pruneCache() {
 	const expiration = 60000;
 
 	for (let key in tileCache) {
-		if (now - tileCache[key].timestamp > expiration) {
+		if (!tileCache[key].loading && (now - tileCache[key].timestamp > expiration)) {
 			delete tileCache[key];
 		}
 	}
