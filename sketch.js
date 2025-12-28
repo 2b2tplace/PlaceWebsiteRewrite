@@ -83,7 +83,7 @@ function draw() {
 	// 	pruneCache();
 	// }
 
-    drawTile(0, 0, 0, 0, 0, 512);
+    // drawTile(0, 0, 0, 0, 0, 512);
 
 	// map panning logic
 	if (mouse.presses()) {
