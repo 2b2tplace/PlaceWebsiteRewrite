@@ -1,5 +1,5 @@
 function setup() {
-    createCanvas(windowWidth, windowHeight, WEBGL);
+    createCanvas(windowWidth, windowHeight);
     camera.on();
     camera.x = 0;
     camera.y = 0;
