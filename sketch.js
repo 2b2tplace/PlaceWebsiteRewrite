@@ -15,75 +15,71 @@ function setup() {
 	camera.y = 0;
 	frameRate(60);
 	createIcons();
-    noSmooth();
-
-    loadTile(0, 0, 0, true);
 }
 
 function draw() {
 	// clear canvas
 	background('black');
-	//camera.on();
-    // tilesToDraw.length = 0;
-	// const t = (Math.log(55) - Math.log(camera.zoom)) / (Math.log(55) - Math.log(0.009));
-	// // 1.6 gives bias towards the lower lods (~ 10)
-	// if (cameraVel >= 0) lod = Math.floor(Math.pow(t, 2) * 8.5);
-	// const tileSize = 512 * 2 ** lod
-	// const borderLod = (lod + 1) > 10 ? 10 : lod + 1;
-	// if (borderLod !== lod) {
-	// 	const borderTileSize = 512 * 2 ** borderLod;
-	// 	const borderPadding = 1;
-    //
-	// 	const borderTLX = Math.floor((camera.x - halfWidth / camera.zoom) / borderTileSize) - borderPadding;
-	// 	const borderTLY = Math.floor((camera.y - halfHeight / camera.zoom) / borderTileSize) - borderPadding;
-	// 	const borderBRX = Math.floor((camera.x + halfWidth / camera.zoom) / borderTileSize) + borderPadding;
-	// 	const borderBRY = Math.floor((camera.y + halfHeight / camera.zoom) / borderTileSize) + borderPadding;
-    //
-	// 	for (let j = borderTLY; j <= borderBRY; j++) {
-	// 		for (let i = borderTLX; i <= borderBRX; i++) {
-	// 			const drawX = i * borderTileSize;
-	// 			const drawY = j * borderTileSize;
-	// 			drawTile(i, j, borderLod, drawX, drawY, borderTileSize, true, true);
-	// 		}
-	// 	}
-	// }
-    //
-	// const topLeftTileX = Math.floor((camera.x - halfWidth / camera.zoom) / tileSize);
-	// const topLeftTileY = Math.floor((camera.y - halfHeight / camera.zoom) / tileSize);
-	// const bottomRightTileX = Math.floor((camera.x + halfWidth / camera.zoom) / tileSize);
-	// const bottomRightTileY = Math.floor((camera.y + halfHeight / camera.zoom) / tileSize);
-	// // to load tiles from center of screen instead of top left to bottom right
-	// const centerX = (topLeftTileX + bottomRightTileX) / 2;
-	// const centerY = (topLeftTileY + bottomRightTileY) / 2;
-    //
-	// for (let j = 0; j < (bottomRightTileY - topLeftTileY) + 1; j++) {
-	// 	for (let i = 0; i < (bottomRightTileX - topLeftTileX) + 1; i++) {
-	// 		const tx = topLeftTileX + i;
-	// 		const ty = topLeftTileY + j;
-    //
-	// 		// no need to sqrt because i dont need perfect distance calc
-	// 		const dx = tx - centerX;
-	// 		const dy = ty - centerY;
-	// 		const dist = dx ** 2 + dy ** 2;
-    //
-	// 		tilesToDraw.push({ tx, ty, dist });
-	// 	}
-	// }
-	// // sort by general distance and draw
-	// tilesToDraw.sort((a, b) => a.dist - b.dist);
-	// tilesToDraw.forEach(tile => {
-	// 	const drawX = tile.tx * tileSize;
-	// 	const drawY = tile.ty * tileSize;
-	// 	// if the camera zoom is changing, don't try and load the tile if it's not cached.
-	// 	const cameraSpeedThreshold = cameraVel == 0;
-	// 	drawTile(tile.tx, tile.ty, lod, drawX, drawY, tileSize, cameraSpeedThreshold, false);
-	// });
-    //
-	// if (frameCount % 120 == 0) {
-	// 	pruneCache();
-	// }
+	camera.on();
+	noSmooth();
+    tilesToDraw.length = 0;
+	const t = (Math.log(55) - Math.log(camera.zoom)) / (Math.log(55) - Math.log(0.009));
+	// 1.6 gives bias towards the lower lods (~ 10)
+	if (cameraVel >= 0) lod = Math.floor(Math.pow(t, 2) * 8.5);
+	const tileSize = 512 * 2 ** lod
+	const borderLod = (lod + 1) > 10 ? 10 : lod + 1;
+	if (borderLod !== lod) {
+		const borderTileSize = 512 * 2 ** borderLod;
+		const borderPadding = 1;
 
-    drawTile(0, 0, 0, 0, 0, 512);
+		const borderTLX = Math.floor((camera.x - halfWidth / camera.zoom) / borderTileSize) - borderPadding;
+		const borderTLY = Math.floor((camera.y - halfHeight / camera.zoom) / borderTileSize) - borderPadding;
+		const borderBRX = Math.floor((camera.x + halfWidth / camera.zoom) / borderTileSize) + borderPadding;
+		const borderBRY = Math.floor((camera.y + halfHeight / camera.zoom) / borderTileSize) + borderPadding;
+
+		for (let j = borderTLY; j <= borderBRY; j++) {
+			for (let i = borderTLX; i <= borderBRX; i++) {
+				const drawX = i * borderTileSize;
+				const drawY = j * borderTileSize;
+				drawTile(i, j, borderLod, drawX, drawY, borderTileSize, true, true);
+			}
+		}
+	}
+
+	const topLeftTileX = Math.floor((camera.x - halfWidth / camera.zoom) / tileSize);
+	const topLeftTileY = Math.floor((camera.y - halfHeight / camera.zoom) / tileSize);
+	const bottomRightTileX = Math.floor((camera.x + halfWidth / camera.zoom) / tileSize);
+	const bottomRightTileY = Math.floor((camera.y + halfHeight / camera.zoom) / tileSize);
+	// to load tiles from center of screen instead of top left to bottom right
+	const centerX = (topLeftTileX + bottomRightTileX) / 2;
+	const centerY = (topLeftTileY + bottomRightTileY) / 2;
+
+	for (let j = 0; j < (bottomRightTileY - topLeftTileY) + 1; j++) {
+		for (let i = 0; i < (bottomRightTileX - topLeftTileX) + 1; i++) {
+			const tx = topLeftTileX + i;
+			const ty = topLeftTileY + j;
+
+			// no need to sqrt because i dont need perfect distance calc
+			const dx = tx - centerX;
+			const dy = ty - centerY;
+			const dist = dx ** 2 + dy ** 2;
+
+			tilesToDraw.push({ tx, ty, dist });
+		}
+	}
+	// sort by general distance and draw
+	tilesToDraw.sort((a, b) => a.dist - b.dist);
+	tilesToDraw.forEach(tile => {
+		const drawX = tile.tx * tileSize;
+		const drawY = tile.ty * tileSize;
+		// if the camera zoom is changing, don't try and load the tile if it's not cached.
+		const cameraSpeedThreshold = cameraVel == 0;
+		drawTile(tile.tx, tile.ty, lod, drawX, drawY, tileSize, cameraSpeedThreshold, false);
+	});
+
+	if (frameCount % 60 == 0) {
+		pruneCache();
+	}
 
 	// map panning logic
 	if (mouse.presses()) {
@@ -210,6 +206,8 @@ async function loadTile(lod, tx, ty, loadIfUncached = true) {
 }
 
 function drawTile(tx, ty, lod, x, y, size, loadIfUncached = true, loadingForLowQual = false) {
+	loadTile(lod, tx, ty, loadIfUncached);
+
 	const key = tileKey(tx, ty, lod);
 	const tile = tileCache[key];
 
@@ -226,66 +224,66 @@ function drawTile(tx, ty, lod, x, y, size, loadIfUncached = true, loadingForLowQ
 		return;
 	}
 
-	// let parentLod = lod + 1;
-    // const maxFallbackLod = 10;
-    // let drawnFallback = false;
-    //
-    // while (parentLod <= maxFallbackLod) {
-    //     const lodGap = parentLod - lod;
-    //     const scaleDiff = 1 << lodGap;
-    //
-    //     const pTx = Math.floor(tx / scaleDiff);
-    //     const pTy = Math.floor(ty / scaleDiff);
-    //     const pKey = tileKey(pTx, pTy, parentLod);
-    //
-    //     const pTile = tileCache[pKey];
-    //
-    //     if (pTile && pTile.loaded && pTile.imgBase) {
-    //         const offsetX = tx - (pTx * scaleDiff);
-    //         const offsetY = ty - (pTy * scaleDiff);
-    //
-    //         const sSize = 512 / scaleDiff;
-    //
-    //         let sX = Math.floor(offsetX * sSize);
-    //         let sY = Math.floor(offsetY * sSize);
-    //         let sW = Math.ceil(sSize);
-    //         let sH = Math.ceil(sSize);
-    //
-    //         if (sX < 0) sX = 0;
-    //         if (sY < 0) sY = 0;
-    //         if (sX + sW > 512) sW = 512 - sX;
-    //         if (sY + sH > 512) sH = 512 - sY;
-    //
-    //         if (sW > 0 && sH > 0) {
-    //             image(pTile.imgBase, x, y, size, size, sX, sY, sW, sH);
-    //
-    //             if (pTile.imgOverlay) {
-    //                 image(pTile.imgOverlay, x, y, size, size, sX, sY, sW, sH);
-    //             }
-    //
-    //             drawnFallback = true;
-	// 			tileCache[pKey].timestamp = Date.now();
-    //             break;
-    //         }
-    //     }
-    //     parentLod++;
-    // }
-    //
-	// if (!loadingForLowQual && lod > 0) {
-	// 	const childLod = lod - 1;
-	// 	const childSize = size / 2;
-	// 	const childTx = tx * 2;
-	// 	const childTy = ty * 2;
-    //
-	// 	drawTile(childTx, childTy, childLod, x, y, childSize, false, true);
-	// 	drawTile(childTx + 1, childTy, childLod, x + childSize, y, childSize, false, true);
-	// 	drawTile(childTx, childTy + 1, childLod, x, y + childSize, childSize, false, true);
-	// 	drawTile(childTx + 1, childTy + 1, childLod, x + childSize, y + childSize, childSize, false, true);
-	// }
-    //
-	// if (tile && tile.loading && Date.now() - tile.timestamp > 5000) {
-	// 	// image(loadImage('/errortile.png'), x, y, size, size);
-	// }
+	let parentLod = lod + 1;
+    const maxFallbackLod = 10;
+    let drawnFallback = false;
+
+    while (parentLod <= maxFallbackLod) {
+        const lodGap = parentLod - lod;
+        const scaleDiff = 1 << lodGap;
+
+        const pTx = Math.floor(tx / scaleDiff);
+        const pTy = Math.floor(ty / scaleDiff);
+        const pKey = tileKey(pTx, pTy, parentLod);
+
+        const pTile = tileCache[pKey];
+
+        if (pTile && pTile.loaded && pTile.imgBase) {
+            const offsetX = tx - (pTx * scaleDiff);
+            const offsetY = ty - (pTy * scaleDiff);
+
+            const sSize = 512 / scaleDiff;
+
+            let sX = Math.floor(offsetX * sSize);
+            let sY = Math.floor(offsetY * sSize);
+            let sW = Math.ceil(sSize);
+            let sH = Math.ceil(sSize);
+
+            if (sX < 0) sX = 0;
+            if (sY < 0) sY = 0;
+            if (sX + sW > 512) sW = 512 - sX;
+            if (sY + sH > 512) sH = 512 - sY;
+
+            if (sW > 0 && sH > 0) {
+                image(pTile.imgBase, x, y, size, size, sX, sY, sW, sH);
+
+                if (pTile.imgOverlay) {
+                    image(pTile.imgOverlay, x, y, size, size, sX, sY, sW, sH);
+                }
+
+                drawnFallback = true;
+				tileCache[pKey].timestamp = Date.now();
+                break;
+            }
+        }
+        parentLod++;
+    }
+
+	if (!loadingForLowQual && lod > 0) {
+		const childLod = lod - 1;
+		const childSize = size / 2;
+		const childTx = tx * 2;
+		const childTy = ty * 2;
+
+		drawTile(childTx, childTy, childLod, x, y, childSize, false, true);
+		drawTile(childTx + 1, childTy, childLod, x + childSize, y, childSize, false, true);
+		drawTile(childTx, childTy + 1, childLod, x, y + childSize, childSize, false, true);
+		drawTile(childTx + 1, childTy + 1, childLod, x + childSize, y + childSize, childSize, false, true);
+	}
+
+	if (tile && tile.loading && Date.now() - tile.timestamp > 5000) {
+		// image(loadImage('/errortile.png'), x, y, size, size);
+	}
 }
 
 function pruneCache() {
