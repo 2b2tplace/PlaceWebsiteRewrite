@@ -13,7 +13,7 @@ function setup() {
 	camera.on();
 	camera.x = 0;
 	camera.y = 0;
-	frameRate(120);
+	frameRate(60);
 	createIcons();
 }
 
