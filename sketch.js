@@ -22,7 +22,7 @@ function draw() {
 	background('black');
 	camera.on();
 	noSmooth();
-    tilesToDraw.length = 0;
+	tilesToDraw.length = 0;
 	const t = (Math.log(55) - Math.log(camera.zoom)) / (Math.log(55) - Math.log(0.009));
 	// 1.6 gives bias towards the lower lods (~ 10)
 	if (cameraVel >= 0) lod = Math.floor(Math.pow(t, 2) * 8.5);
@@ -148,18 +148,10 @@ function windowResized() {
 	camera.y = tempCamY;
 }
 
-function loadImageAsync(url) {
-	return new Promise((resolve, reject) => {
-		loadImage(url,
-			(img) => resolve(img)
-		);
-	});
-}
-
 function tileKey(tileX, tileY, lod) {
-    return (BigInt(tileX & 0x1FFFFFF) << 32n)
-        | (BigInt(tileY & 0x1FFFFFF) << 7n)
-        | BigInt(lod & 0x7F);
+	return (BigInt(tileX & 0x1FFFFFF) << 32n)
+		| (BigInt(tileY & 0x1FFFFFF) << 7n)
+		| BigInt(lod & 0x7F);
 }
 
 async function loadTile(lod, tx, ty, loadIfUncached = true) {
@@ -182,27 +174,31 @@ async function loadTile(lod, tx, ty, loadIfUncached = true) {
 	const urlBase = `tiles/base/${lod}/0/${sx}/${sy}/t.${tx}.${ty}.webp`;
 	const urlOverlay = `tiles/overlay/${lod}/0/${sx}/${sy}/t.${tx}.${ty}.webp`;
 
-	try {
-		const [base, overlay] = await Promise.all([
-			loadImageAsync(urlBase),
-			loadImageAsync(urlOverlay)
-		]);
-
-		if (tileCache[key]) {
-			if (base) {
-				tileCache[key].imgBase = base;
-				tileCache[key].imgOverlay = overlay
-				tileCache[key].loaded = true;
-				tileCache[key].loading = false;
-			} else {
-				tileCache[key].loading = false;
-			}
-		}
-	} catch (err) {
-		if (tileCache[key]) {
-			tileCache[key].error = true;
-		}
-	}
+	fetch(urlBase)
+		.then(res => res.blob())
+		.then(blob => {
+			const img = new Image();
+			img.onload = () => {
+				if (tileCache[key]) {
+					tileCache[key].imgBase = img;
+					tileCache[key].loaded = true;
+					tileCache[key].loading = false;
+					tileCache[key].firstLoaded = Date.now();
+				}
+			};
+			img.src = URL.createObjectURL(blob);
+		});
+	fetch(urlOverlay)
+		.then(res => res.blob())
+		.then(blob => {
+			const img = new Image();
+			img.onload = () => {
+				if (tileCache[key]) {
+					tileCache[key].imgOverlay = img;
+				}
+			};
+			img.src = URL.createObjectURL(blob);
+		});
 }
 
 function drawTile(tx, ty, lod, x, y, size, loadIfUncached = true, loadingForLowQual = false) {
@@ -225,49 +221,49 @@ function drawTile(tx, ty, lod, x, y, size, loadIfUncached = true, loadingForLowQ
 	}
 
 	let parentLod = lod + 1;
-    const maxFallbackLod = 10;
-    let drawnFallback = false;
+	const maxFallbackLod = 10;
+	let drawnFallback = false;
 
-    while (parentLod <= maxFallbackLod) {
-        const lodGap = parentLod - lod;
-        const scaleDiff = 1 << lodGap;
+	while (parentLod <= maxFallbackLod) {
+		const lodGap = parentLod - lod;
+		const scaleDiff = 1 << lodGap;
 
-        const pTx = Math.floor(tx / scaleDiff);
-        const pTy = Math.floor(ty / scaleDiff);
-        const pKey = tileKey(pTx, pTy, parentLod);
+		const pTx = Math.floor(tx / scaleDiff);
+		const pTy = Math.floor(ty / scaleDiff);
+		const pKey = tileKey(pTx, pTy, parentLod);
 
-        const pTile = tileCache[pKey];
+		const pTile = tileCache[pKey];
 
-        if (pTile && pTile.loaded && pTile.imgBase) {
-            const offsetX = tx - (pTx * scaleDiff);
-            const offsetY = ty - (pTy * scaleDiff);
+		if (pTile && pTile.loaded && pTile.imgBase) {
+			const offsetX = tx - (pTx * scaleDiff);
+			const offsetY = ty - (pTy * scaleDiff);
 
-            const sSize = 512 / scaleDiff;
+			const sSize = 512 / scaleDiff;
 
-            let sX = Math.floor(offsetX * sSize);
-            let sY = Math.floor(offsetY * sSize);
-            let sW = Math.ceil(sSize);
-            let sH = Math.ceil(sSize);
+			let sX = Math.floor(offsetX * sSize);
+			let sY = Math.floor(offsetY * sSize);
+			let sW = Math.ceil(sSize);
+			let sH = Math.ceil(sSize);
 
-            if (sX < 0) sX = 0;
-            if (sY < 0) sY = 0;
-            if (sX + sW > 512) sW = 512 - sX;
-            if (sY + sH > 512) sH = 512 - sY;
+			if (sX < 0) sX = 0;
+			if (sY < 0) sY = 0;
+			if (sX + sW > 512) sW = 512 - sX;
+			if (sY + sH > 512) sH = 512 - sY;
 
-            if (sW > 0 && sH > 0) {
-                image(pTile.imgBase, x, y, size, size, sX, sY, sW, sH);
+			if (sW > 0 && sH > 0) {
+				image(pTile.imgBase, x, y, size, size, sX, sY, sW, sH);
 
-                if (pTile.imgOverlay) {
-                    image(pTile.imgOverlay, x, y, size, size, sX, sY, sW, sH);
-                }
+				if (pTile.imgOverlay) {
+					image(pTile.imgOverlay, x, y, size, size, sX, sY, sW, sH);
+				}
 
-                drawnFallback = true;
+				drawnFallback = true;
 				tileCache[pKey].timestamp = Date.now();
-                break;
-            }
-        }
-        parentLod++;
-    }
+				break;
+			}
+		}
+		parentLod++;
+	}
 
 	if (!loadingForLowQual && lod > 0) {
 		const childLod = lod - 1;
