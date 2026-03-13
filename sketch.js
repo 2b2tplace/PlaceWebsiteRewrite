@@ -166,24 +166,28 @@ async function loadTile(lod, tx, ty, allowLoading = true) {
     try {
         const sx = (tx / 32) >> 0;
         const sy = (ty / 32) >> 0;
-        const urlBase = `tiles/base/${lod}/0/${sx}/${sy}/t.${tx}.${ty}.webp`;
-        const urlOverlay = `tiles/overlay/${lod}/0/${sx}/${sy}/t.${tx}.${ty}.webp`;
+        const urlBase = `/tiles/base/${lod}/0/${sx}/${sy}/t.${tx}.${ty}.webp`;
+        const urlOverlay = `/tiles/overlay/${lod}/0/${sx}/${sy}/t.${tx}.${ty}.webp`;
 
         const [resBase, resOverlay] = await Promise.all([
             fetch(urlBase),
             fetch(urlOverlay)
         ]);
 
-        if (!resBase.ok || !resOverlay.ok) {
-            throw new Error(`Tile ${tx},${ty} not found`);
-        }
+        if (!resBase.ok) throw new Error(`Base tile ${tx},${ty} not found`);
+        const bitmapBase = await createImageBitmap(await resBase.blob());
 
-        const [bitmapBase, bitmapOverlay] = await Promise.all([
-            createImageBitmap(await resBase.blob()),
-            createImageBitmap(await resOverlay.blob())
-        ]);
+        // decode if base comes back ok
+        let bitmapOverlay = null;
+        if (resOverlay.ok) {
+            try {
+                bitmapOverlay = await createImageBitmap(await resOverlay.blob());
+            } catch (err) {
+                console.warn(`Overlay exists but is invalid for ${tx},${ty}`);
+            }
+        }
         
-		// mark as loaded
+        // success
         tileCache[key] = {
             imgBase: bitmapBase,
             imgOverlay: bitmapOverlay,
@@ -191,8 +195,9 @@ async function loadTile(lod, tx, ty, allowLoading = true) {
             loading: false,
             timestamp: Date.now()
         };
+
     } catch (e) {
-		// mark as failed
+        // failed if fetch fails
         tileCache[key] = {
             loaded: false, 
             loading: false, 
