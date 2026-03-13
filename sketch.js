@@ -13,12 +13,28 @@ let inFlightRequests = new Set();
 let activeTileKeys = new Set();
 let currentDimension = 0;
 
+// elements
+let findInput;
+
 function setup() {
 	createCanvas(windowWidth, windowHeight, WEBGL);
 	camera.on();
 	camera.x = 0;
 	camera.y = 0;
 	frameRate(120);
+
+	// element setup
+	findInput = document.getElementById('find');
+	findInput.addEventListener('keydown', (e) => {
+		if (e.key === 'Enter') {
+			handleCoordinateSearch(findInput.value);
+			findInput.blur();
+		}
+		if (e.key === 'Escape') {
+			findInput.blur();
+		}
+	});
+
 	createIcons();
 }
 
@@ -371,4 +387,26 @@ function keyPressed() {
 	if (key === '1') currentDimension = 0;
 	else if (key === '2') currentDimension = 1;
 	else if (key === '3') currentDimension = 2;
+}
+
+window.addEventListener('keydown', (e) => {
+	if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+		e.preventDefault();
+		findInput.focus();
+		findInput.select();
+	}
+});
+
+function handleCoordinateSearch(val) {
+    const coords = val.split(/[ ,]+/);
+    if (coords.length >= 2) {
+        const x = parseFloat(coords[0]);
+        const y = parseFloat(coords[1]);
+        
+        if (!isNaN(x) && !isNaN(y)) {
+            camera.x = x;
+            camera.y = y;
+            console.log(`Jumped to: ${x}, ${y}`);
+        }
+    }
 }
