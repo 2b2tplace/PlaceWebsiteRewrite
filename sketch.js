@@ -7,6 +7,7 @@ let isTrackpad = false;
 let mouseScrollX = 0, mouseScrollY = 0;
 let uiElements = {}
 let tilesToDraw = [];
+let inFlightRequests = new Set();
 
 function setup() {
 	createCanvas(windowWidth, windowHeight, WEBGL);
@@ -23,9 +24,11 @@ function draw() {
 	camera.on();
 	noSmooth();
 	tilesToDraw.length = 0;
-	const t = (Math.log(55) - Math.log(camera.zoom)) / (Math.log(55) - Math.log(0.009));
-	// 1.6 gives bias towards the lower lods (~ 10)
-	if (cameraVel >= 0) lod = Math.floor(Math.pow(t, 2) * 8.5);
+
+	if (cameraVel >= 0) {
+		lod = Math.floor(-Math.log2(camera.zoom));
+		lod = Math.max(0, Math.min(10, lod));
+	}
 	const tileSize = 512 * 2 ** lod
 	const borderLod = (lod + 1) > 10 ? 10 : lod + 1;
 	if (borderLod !== lod) {
@@ -69,12 +72,11 @@ function draw() {
 	}
 	// sort by general distance and draw
 	tilesToDraw.sort((a, b) => a.dist - b.dist);
+	const isFastMoving = Math.abs(cameraVel) > 0.5;
 	tilesToDraw.forEach(tile => {
 		const drawX = tile.tx * tileSize;
 		const drawY = tile.ty * tileSize;
-		// if the camera zoom is changing, don't try and load the tile if it's not cached.
-		const cameraSpeedThreshold = cameraVel == 0;
-		drawTile(tile.tx, tile.ty, lod, drawX, drawY, tileSize, cameraSpeedThreshold, false);
+		drawTile(tile.tx, tile.ty, lod, drawX, drawY, tileSize, !isFastMoving, false);
 	});
 
 	if (frameCount % 120 == 0) {
@@ -82,13 +84,13 @@ function draw() {
 	}
 
 	// map panning logic
-	if (mouse.presses()) {
+	if (mouse.presses('left')) {
 		originalMouseX = mouseX;
 		originalMouseY = mouseY;
 		originalCameraX = camera.x;
 		originalCameraY = camera.y;
 	}
-	if (mouseIsPressed) {
+	if (mouse.pressing('left')) {
 		camera.x = (originalCameraX + ((originalMouseX - mouseX) / camera.zoom));
 		camera.y = (originalCameraY + ((originalMouseY - mouseY) / camera.zoom));
 	}
@@ -154,58 +156,61 @@ function tileKey(tileX, tileY, lod) {
 		| BigInt(lod & 0x7F);
 }
 
-async function loadTile(lod, tx, ty, loadIfUncached = true) {
-	const key = tileKey(tx, ty, lod);
+async function loadTile(lod, tx, ty, allowLoading = true) {
+    const key = tileKey(tx, ty, lod);
+    
+    if (tileCache[key] || !allowLoading || inFlightRequests.has(key)) return;
 
-	if (tileCache[key]) return;
-	if (!loadIfUncached) return;
+    inFlightRequests.add(key);
 
-	tileCache[key] = {
-		imgBase: null,
-		imgOverlay: null,
-		loaded: false,
-		loading: true,
-		timestamp: Date.now()
-	}
+    try {
+        const sx = (tx / 32) >> 0;
+        const sy = (ty / 32) >> 0;
+        const urlBase = `tiles/base/${lod}/0/${sx}/${sy}/t.${tx}.${ty}.webp`;
+        const urlOverlay = `tiles/overlay/${lod}/0/${sx}/${sy}/t.${tx}.${ty}.webp`;
 
-	const sx = (tx / 32) >> 0;
-	const sy = (ty / 32) >> 0;
+        const [resBase, resOverlay] = await Promise.all([
+            fetch(urlBase),
+            fetch(urlOverlay)
+        ]);
 
-	const urlBase = `tiles/base/${lod}/0/${sx}/${sy}/t.${tx}.${ty}.webp`;
-	const urlOverlay = `tiles/overlay/${lod}/0/${sx}/${sy}/t.${tx}.${ty}.webp`;
+        if (!resBase.ok || !resOverlay.ok) {
+            throw new Error(`Tile ${tx},${ty} not found`);
+        }
 
-	fetch(urlBase)
-		.then(res => res.blob())
-		.then(blob => {
-			const img = new Image();
-			img.onload = () => {
-				if (tileCache[key]) {
-					tileCache[key].imgBase = img;
-					tileCache[key].loaded = true;
-					tileCache[key].loading = false;
-					tileCache[key].firstLoaded = Date.now();
-				}
-			};
-			img.src = URL.createObjectURL(blob);
-		});
-	fetch(urlOverlay)
-		.then(res => res.blob())
-		.then(blob => {
-			const img = new Image();
-			img.onload = () => {
-				if (tileCache[key]) {
-					tileCache[key].imgOverlay = img;
-				}
-			};
-			img.src = URL.createObjectURL(blob);
-		});
+        const [bitmapBase, bitmapOverlay] = await Promise.all([
+            createImageBitmap(await resBase.blob()),
+            createImageBitmap(await resOverlay.blob())
+        ]);
+        
+		// mark as loaded
+        tileCache[key] = {
+            imgBase: bitmapBase,
+            imgOverlay: bitmapOverlay,
+            loaded: true,
+            loading: false,
+            timestamp: Date.now()
+        };
+    } catch (e) {
+		// mark as failed
+        tileCache[key] = {
+            loaded: false, 
+            loading: false, 
+            failed: true,
+            timestamp: Date.now()
+        };
+    } finally {
+        inFlightRequests.delete(key);
+    }
 }
 
 function drawTile(tx, ty, lod, x, y, size, loadIfUncached = true, loadingForLowQual = false) {
-	loadTile(lod, tx, ty, loadIfUncached);
-
 	const key = tileKey(tx, ty, lod);
+
 	const tile = tileCache[key];
+	if (!tile || (!tile.loaded && !tile.failed)) {
+		loadTile(lod, tx, ty, loadIfUncached);
+	}
 
 	if (tile && tile.loaded && tile.imgBase) {
 		tile.timestamp = Date.now();
@@ -219,6 +224,8 @@ function drawTile(tx, ty, lod, x, y, size, loadIfUncached = true, loadingForLowQ
 		}
 		return;
 	}
+
+	if (tile && tile.failed) return;
 
 	let parentLod = lod + 1;
 	const maxFallbackLod = 10;
