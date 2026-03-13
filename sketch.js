@@ -11,6 +11,7 @@ let uiElements = {}
 let tilesToDraw = [];
 let inFlightRequests = new Set();
 let activeTileKeys = new Set();
+let currentDimension = 0;
 
 function setup() {
 	createCanvas(windowWidth, windowHeight, WEBGL);
@@ -96,10 +97,10 @@ function draw() {
 	}
 
 	for (let key of inFlightRequests) {
-        if (!activeTileKeys.has(key)) {
-            abortTile(key);
-        }
-    }
+		if (!activeTileKeys.has(key)) {
+			abortTile(key);
+		}
+	}
 
 	// map panning logic
 	if (mouse.presses('left')) {
@@ -168,14 +169,12 @@ function windowResized() {
 	camera.y = tempCamY;
 }
 
-function tileKey(tileX, tileY, lod) {
-	return (BigInt(tileX & 0x1FFFFFF) << 32n)
-		| (BigInt(tileY & 0x1FFFFFF) << 7n)
-		| BigInt(lod & 0x7F);
+function tileKey(tileX, tileY, lod, dim) {
+	return (BigInt(tileX) & 0x1FFFFFFn) << 35n | (BigInt(tileY) & 0x1FFFFFFn) << 10n | (BigInt(lod) & 0x7Fn) << 3n | (BigInt(dim) & 0x7n);
 }
 
 async function loadTile(lod, tx, ty, allowLoading = true) {
-	const key = tileKey(tx, ty, lod);
+	const key = tileKey(tx, ty, lod, currentDimension);
 
 	if ((tileCache[key] && (tileCache[key].loaded || tileCache[key].failed || tileCache[key].loading)) || !allowLoading || inFlightRequests.has(key)) return;
 
@@ -187,8 +186,8 @@ async function loadTile(lod, tx, ty, allowLoading = true) {
 	try {
 		const sx = (tx / 32) >> 0;
 		const sy = (ty / 32) >> 0;
-		const urlBase = `/tiles/base/${lod}/0/${sx}/${sy}/t.${tx}.${ty}.webp`;
-		const urlOverlay = `/tiles/overlay/${lod}/0/${sx}/${sy}/t.${tx}.${ty}.webp`;
+		const urlBase = `/tiles/base/${lod}/${currentDimension}/${sx}/${sy}/t.${tx}.${ty}.webp`;
+		const urlOverlay = `/tiles/overlay/${lod}/${currentDimension}/${sx}/${sy}/t.${tx}.${ty}.webp`;
 
 		const [resBase, resOverlay] = await Promise.all([
 			fetch(urlBase, { signal: controller.signal }),
@@ -236,7 +235,7 @@ function drawTile(tx, ty, lod, x, y, size, loadIfUncached = true, loadingForLowQ
 	const effectiveLod = Math.max(lod, speedThreshold);
 	const isAllowedToLoad = loadIfUncached && (lod >= effectiveLod);
 
-	const key = tileKey(tx, ty, lod);
+	const key = tileKey(tx, ty, lod, currentDimension);
 	activeTileKeys.add(key);
 	let tile = tileCache[key];
 	if (!tile) {
@@ -284,7 +283,7 @@ function drawTile(tx, ty, lod, x, y, size, loadIfUncached = true, loadingForLowQ
 
 		const pTx = Math.floor(tx / scaleDiff);
 		const pTy = Math.floor(ty / scaleDiff);
-		const pKey = tileKey(pTx, pTy, parentLod);
+		const pKey = tileKey(pTx, pTy, parentLod, currentDimension);
 
 		const pTile = tileCache[pKey];
 
@@ -337,17 +336,17 @@ function drawTile(tx, ty, lod, x, y, size, loadIfUncached = true, loadingForLowQ
 }
 
 function abortTile(key) {
-    const tile = tileCache[key];
-    if (tile && tile.loading && tile.controller) {
-        tile.controller.abort();
-        delete tileCache[key];
-        inFlightRequests.delete(key);
-    }
+	const tile = tileCache[key];
+	if (tile && tile.loading && tile.controller) {
+		tile.controller.abort();
+		delete tileCache[key];
+		inFlightRequests.delete(key);
+	}
 }
 
 function pruneCache() {
 	const now = Date.now();
-	const expiration = 60000;
+	const expiration = 180000;
 
 	for (let key in tileCache) {
 		if (!tileCache[key].loading && (now - tileCache[key].timestamp > expiration)) {
@@ -365,4 +364,10 @@ function createIcons() {
 		img.className = 'icon';
 		icon.replaceWith(img);
 	});
+}
+
+function keyPressed() {
+	if (key === '1') currentDimension = 0;
+	else if (key === '2') currentDimension = 1;
+	else if (key === '3') currentDimension = 2;
 }
