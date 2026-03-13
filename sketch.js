@@ -1,4 +1,6 @@
 let originalMouseX, originalMouseY, originalCameraX, originalCameraY;
+let lastCamX = 0, lastCamY = 0;
+let smoothCamVel = 0;
 let lod;
 let intendedCamZoom = 1;
 let tileCache = {};
@@ -29,11 +31,18 @@ function draw() {
 		lod = Math.floor(-Math.log2(camera.zoom));
 		lod = Math.max(0, Math.min(10, lod));
 	}
+
+	// calculate current camera speed
+	const speed = Math.sqrt((camera.x - lastCamX) ** 2 + (camera.y - lastCamY) ** 2);
+	smoothCamVel = (smoothCamVel * 0.9) + (speed * 0.1);
+	lastCamX = camera.x;
+	lastCamY = camera.y;
+
 	const tileSize = 512 * 2 ** lod
 	const borderLod = (lod + 1) > 10 ? 10 : lod + 1;
 	if (borderLod !== lod) {
 		const borderTileSize = 512 * 2 ** borderLod;
-		const borderPadding = 1;
+		const borderPadding = 2;
 
 		const borderTLX = Math.floor((camera.x - halfWidth / camera.zoom) / borderTileSize) - borderPadding;
 		const borderTLY = Math.floor((camera.y - halfHeight / camera.zoom) / borderTileSize) - borderPadding;
@@ -73,10 +82,11 @@ function draw() {
 	// sort by general distance and draw
 	tilesToDraw.sort((a, b) => a.dist - b.dist);
 	const isFastMoving = Math.abs(cameraVel) > 0.5;
-	tilesToDraw.forEach(tile => {
+	tilesToDraw.forEach((tile, index) => {
 		const drawX = tile.tx * tileSize;
 		const drawY = tile.ty * tileSize;
-		drawTile(tile.tx, tile.ty, lod, drawX, drawY, tileSize, !isFastMoving, false);
+		const currentDwell = (index < 9) ? 50 : 500;
+		drawTile(tile.tx, tile.ty, lod, drawX, drawY, tileSize, !isFastMoving, false, currentDwell);
 	});
 
 	if (frameCount % 120 == 0) {
@@ -157,63 +167,83 @@ function tileKey(tileX, tileY, lod) {
 }
 
 async function loadTile(lod, tx, ty, allowLoading = true) {
-    const key = tileKey(tx, ty, lod);
-    
-    if (tileCache[key] || !allowLoading || inFlightRequests.has(key)) return;
-
-    inFlightRequests.add(key);
-
-    try {
-        const sx = (tx / 32) >> 0;
-        const sy = (ty / 32) >> 0;
-        const urlBase = `/tiles/base/${lod}/0/${sx}/${sy}/t.${tx}.${ty}.webp`;
-        const urlOverlay = `/tiles/overlay/${lod}/0/${sx}/${sy}/t.${tx}.${ty}.webp`;
-
-        const [resBase, resOverlay] = await Promise.all([
-            fetch(urlBase),
-            fetch(urlOverlay)
-        ]);
-
-        if (!resBase.ok) throw new Error(`Base tile ${tx},${ty} not found`);
-        const bitmapBase = await createImageBitmap(await resBase.blob());
-
-        // decode if base comes back ok
-        let bitmapOverlay = null;
-        if (resOverlay.ok) {
-            try {
-                bitmapOverlay = await createImageBitmap(await resOverlay.blob());
-            } catch (err) {
-                console.warn(`Overlay exists but is invalid for ${tx},${ty}`);
-            }
-        }
-        
-        // success
-        tileCache[key] = {
-            imgBase: bitmapBase,
-            imgOverlay: bitmapOverlay,
-            loaded: true,
-            loading: false,
-            timestamp: Date.now()
-        };
-
-    } catch (e) {
-        // failed if fetch fails
-        tileCache[key] = {
-            loaded: false, 
-            loading: false, 
-            failed: true,
-            timestamp: Date.now()
-        };
-    } finally {
-        inFlightRequests.delete(key);
-    }
-}
-
-function drawTile(tx, ty, lod, x, y, size, loadIfUncached = true, loadingForLowQual = false) {
 	const key = tileKey(tx, ty, lod);
 
-	const tile = tileCache[key];
-	if (!tile || (!tile.loaded && !tile.failed)) {
+	if ((tileCache[key] && (tileCache[key].loaded == true || tileCache[key].failed == true)) || !allowLoading || inFlightRequests.has(key)) return;
+
+	if (!tileCache[key]) tileCache[key] = { loading: true };
+	inFlightRequests.add(key);
+
+	try {
+		const sx = (tx / 32) >> 0;
+		const sy = (ty / 32) >> 0;
+		const urlBase = `/tiles/base/${lod}/0/${sx}/${sy}/t.${tx}.${ty}.webp`;
+		const urlOverlay = `/tiles/overlay/${lod}/0/${sx}/${sy}/t.${tx}.${ty}.webp`;
+
+		const [resBase, resOverlay] = await Promise.all([
+			fetch(urlBase),
+			fetch(urlOverlay)
+		]);
+
+		if (!resBase.ok) throw new Error(`Base tile ${tx},${ty} not found`);
+		const bitmapBase = await createImageBitmap(await resBase.blob());
+
+		// decode if base comes back ok
+		let bitmapOverlay = null;
+		if (resOverlay.ok) {
+			try {
+				bitmapOverlay = await createImageBitmap(await resOverlay.blob());
+			} catch (err) {
+				console.warn(`Overlay exists but is invalid for ${tx},${ty}`);
+			}
+		}
+
+		// success
+		tileCache[key] = {
+			imgBase: bitmapBase,
+			imgOverlay: bitmapOverlay,
+			loaded: true,
+			loading: false,
+			timestamp: Date.now()
+		};
+
+	} catch (e) {
+		// failed if fetch fails
+		tileCache[key] = {
+			loaded: false,
+			loading: false,
+			failed: true,
+			timestamp: Date.now()
+		};
+	} finally {
+		inFlightRequests.delete(key);
+	}
+}
+
+function drawTile(tx, ty, lod, x, y, size, loadIfUncached = true, loadingForLowQual = false, currentDwell = 500) {
+	const speedThreshold = Math.min(6, Math.floor(smoothCamVel / 5));
+	const effectiveLod = Math.max(lod, speedThreshold);
+	const isAllowedToLoad = loadIfUncached && (lod >= effectiveLod);
+
+	const key = tileKey(tx, ty, lod);
+	let tile = tileCache[key];
+	if (!tile) {
+		tile = {
+			loading: false,
+			loaded: false,
+			failed: false,
+			firstSeen: Date.now()
+		};
+		tileCache[key] = tile;
+	}
+
+	const shouldLoad = loadIfUncached &&
+		!tile.loading &&
+		!tile.loaded &&
+		!tile.failed &&
+		(Date.now() - tile.firstSeen > currentDwell);
+
+	if (isAllowedToLoad && shouldLoad) {
 		loadTile(lod, tx, ty, loadIfUncached);
 	}
 
