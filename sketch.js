@@ -84,7 +84,7 @@ function draw() {
 	}
 	// sort by general distance and draw
 	tilesToDraw.sort((a, b) => a.dist - b.dist);
-	const isFastMoving = Math.abs(cameraVel) > 0.25;
+	const isFastMoving = Math.abs(cameraVel) > 0.02;
 	tilesToDraw.forEach((tile, index) => {
 		const drawX = tile.tx * tileSize;
 		const drawY = tile.ty * tileSize;
@@ -153,7 +153,8 @@ function update() {
 		camera.zoom = newZoom;
 		camera.x += (mouse.x - camera.x) * (1 - zoomRatio);
 		camera.y += (mouse.y - camera.y) * (1 - zoomRatio);
-		cameraVel = Math.round((cameraVel - camera.zoom) * 100) / 100;
+		cameraVel = Math.round((cameraVel - camera.zoom) * 10000) / 10000;
+		console.log(cameraVel)
 	} else {
 		camera.x += mouseScrollX / camera.zoom;
 		camera.y += mouseScrollY / camera.zoom;
