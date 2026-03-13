@@ -10,6 +10,7 @@ let mouseScrollX = 0, mouseScrollY = 0;
 let uiElements = {}
 let tilesToDraw = [];
 let inFlightRequests = new Set();
+let activeTileKeys = new Set();
 
 function setup() {
 	createCanvas(windowWidth, windowHeight, WEBGL);
@@ -26,6 +27,7 @@ function draw() {
 	camera.on();
 	noSmooth();
 	tilesToDraw.length = 0;
+	activeTileKeys.clear();
 
 	if (cameraVel >= 0) {
 		lod = Math.floor(-Math.log2(camera.zoom));
@@ -81,7 +83,7 @@ function draw() {
 	}
 	// sort by general distance and draw
 	tilesToDraw.sort((a, b) => a.dist - b.dist);
-	const isFastMoving = Math.abs(cameraVel) > 0.5;
+	const isFastMoving = Math.abs(cameraVel) > 0.25;
 	tilesToDraw.forEach((tile, index) => {
 		const drawX = tile.tx * tileSize;
 		const drawY = tile.ty * tileSize;
@@ -92,6 +94,12 @@ function draw() {
 	if (frameCount % 120 == 0) {
 		pruneCache();
 	}
+
+	for (let key of inFlightRequests) {
+        if (!activeTileKeys.has(key)) {
+            abortTile(key);
+        }
+    }
 
 	// map panning logic
 	if (mouse.presses('left')) {
@@ -169,9 +177,11 @@ function tileKey(tileX, tileY, lod) {
 async function loadTile(lod, tx, ty, allowLoading = true) {
 	const key = tileKey(tx, ty, lod);
 
-	if ((tileCache[key] && (tileCache[key].loaded == true || tileCache[key].failed == true)) || !allowLoading || inFlightRequests.has(key)) return;
+	if ((tileCache[key] && (tileCache[key].loaded || tileCache[key].failed || tileCache[key].loading)) || !allowLoading || inFlightRequests.has(key)) return;
 
-	if (!tileCache[key]) tileCache[key] = { loading: true };
+	const controller = new AbortController();
+
+	if (!tileCache[key]) tileCache[key] = { loading: true, controller: controller };
 	inFlightRequests.add(key);
 
 	try {
@@ -181,8 +191,8 @@ async function loadTile(lod, tx, ty, allowLoading = true) {
 		const urlOverlay = `/tiles/overlay/${lod}/0/${sx}/${sy}/t.${tx}.${ty}.webp`;
 
 		const [resBase, resOverlay] = await Promise.all([
-			fetch(urlBase),
-			fetch(urlOverlay)
+			fetch(urlBase, { signal: controller.signal }),
+			fetch(urlOverlay, { signal: controller.signal })
 		]);
 
 		if (!resBase.ok) throw new Error(`Base tile ${tx},${ty} not found`);
@@ -193,9 +203,7 @@ async function loadTile(lod, tx, ty, allowLoading = true) {
 		if (resOverlay.ok) {
 			try {
 				bitmapOverlay = await createImageBitmap(await resOverlay.blob());
-			} catch (err) {
-				console.warn(`Overlay exists but is invalid for ${tx},${ty}`);
-			}
+			} catch (err) { }
 		}
 
 		// success
@@ -208,6 +216,9 @@ async function loadTile(lod, tx, ty, allowLoading = true) {
 		};
 
 	} catch (e) {
+		if (e.name === 'AbortError') {
+			return;
+		}
 		// failed if fetch fails
 		tileCache[key] = {
 			loaded: false,
@@ -226,6 +237,7 @@ function drawTile(tx, ty, lod, x, y, size, loadIfUncached = true, loadingForLowQ
 	const isAllowedToLoad = loadIfUncached && (lod >= effectiveLod);
 
 	const key = tileKey(tx, ty, lod);
+	activeTileKeys.add(key);
 	let tile = tileCache[key];
 	if (!tile) {
 		tile = {
@@ -322,6 +334,15 @@ function drawTile(tx, ty, lod, x, y, size, loadIfUncached = true, loadingForLowQ
 	if (tile && tile.loading && Date.now() - tile.timestamp > 5000) {
 		// image(loadImage('/errortile.png'), x, y, size, size);
 	}
+}
+
+function abortTile(key) {
+    const tile = tileCache[key];
+    if (tile && tile.loading && tile.controller) {
+        tile.controller.abort();
+        delete tileCache[key];
+        inFlightRequests.delete(key);
+    }
 }
 
 function pruneCache() {
