@@ -57,7 +57,7 @@ function draw() {
 	lastCamX = camera.x;
 	lastCamY = camera.y;
 
-	const tileSize = 512 * 2 ** lod
+	const tileSize = Math.round(512 * 2 ** lod)
 	const borderLod = (lod + 1) > 10 ? 10 : lod + 1;
 	if (borderLod !== lod) {
 		const borderTileSize = 512 * 2 ** borderLod;
@@ -98,14 +98,26 @@ function draw() {
 			tilesToDraw.push({ tx, ty, dist });
 		}
 	}
-	// sort by general distance and draw
+	// sort tiles
 	tilesToDraw.sort((a, b) => a.dist - b.dist);
 	const isFastMoving = Math.abs(cameraVel) > 0.02;
+
+	// draw base
 	tilesToDraw.forEach((tile, index) => {
-		const drawX = tile.tx * tileSize;
-		const drawY = tile.ty * tileSize;
+		const drawX = Math.floor(tile.tx * tileSize);
+		const drawY = Math.floor(tile.ty * tileSize);
 		const currentDwell = (index < 9) ? 50 : 500;
-		drawTile(tile.tx, tile.ty, lod, drawX, drawY, tileSize, !isFastMoving, false, currentDwell);
+
+		drawTile(tile.tx, tile.ty, lod, drawX, drawY, Math.floor(tileSize), !isFastMoving, false, currentDwell, 'base');
+	});
+
+	// overlay
+	tilesToDraw.forEach((tile, index) => {
+		const drawX = Math.floor(tile.tx * tileSize);
+		const drawY = Math.floor(tile.ty * tileSize);
+		const currentDwell = (index < 9) ? 50 : 500;
+
+		drawTile(tile.tx, tile.ty, lod, drawX, drawY, Math.ceil(tileSize+2), !isFastMoving, false, currentDwell, 'overlay');
 	});
 
 	if (frameCount % 120 == 0) {
@@ -126,8 +138,8 @@ function draw() {
 		originalCameraY = camera.y;
 	}
 	if (mouse.pressing('left')) {
-		camera.x = (originalCameraX + ((originalMouseX - mouseX) / camera.zoom));
-		camera.y = (originalCameraY + ((originalMouseY - mouseY) / camera.zoom));
+		camera.x = Math.round(originalCameraX + ((originalMouseX - mouseX) / camera.zoom));
+		camera.y = Math.round(originalCameraY + ((originalMouseY - mouseY) / camera.zoom));
 	}
 
 	// reset mouse scroll
@@ -247,89 +259,64 @@ async function loadTile(lod, tx, ty, allowLoading = true) {
 	}
 }
 
-function drawTile(tx, ty, lod, x, y, size, loadIfUncached = true, loadingForLowQual = false, currentDwell = 500) {
+function drawTile(tx, ty, lod, x, y, size, loadIfUncached = true, loadingForLowQual = false, currentDwell = 500, layer = 'base') {
 	const speedThreshold = Math.min(6, Math.floor(smoothCamVel / 5));
 	const effectiveLod = Math.max(lod, speedThreshold);
 	const isAllowedToLoad = loadIfUncached && (lod >= effectiveLod);
 
 	const key = tileKey(tx, ty, lod, currentDimension);
 	activeTileKeys.add(key);
+
 	let tile = tileCache[key];
 	if (!tile) {
-		tile = {
-			loading: false,
-			loaded: false,
-			failed: false,
-			firstSeen: Date.now()
-		};
+		tile = { loading: false, loaded: false, failed: false, firstSeen: Date.now() };
 		tileCache[key] = tile;
 	}
 
-	const shouldLoad = loadIfUncached &&
-		!tile.loading &&
-		!tile.loaded &&
-		!tile.failed &&
-		(Date.now() - tile.firstSeen > currentDwell);
-
-	if (isAllowedToLoad && shouldLoad) {
-		loadTile(lod, tx, ty, loadIfUncached);
+	if (layer === 'base' && isAllowedToLoad) {
+		const shouldLoad = !tile.loading && !tile.loaded && !tile.failed && (Date.now() - tile.firstSeen > currentDwell);
+		if (shouldLoad) loadTile(lod, tx, ty, loadIfUncached);
 	}
 
-	if (tile && tile.loaded && tile.imgBase) {
-		tile.timestamp = Date.now();
-
-		fill('black');
-		noStroke();
-		rect(x, y, size, size);
-		image(tile.imgBase, x, y, size, size);
-		if (tile.imgOverlay) {
-			image(tile.imgOverlay, x, y, size, size)
+	if (tile && tile.loaded) {
+		if (layer === 'base' && tile.imgBase) {
+			image(tile.imgBase, x, y, size, size);
+			return;
+		} else if (layer === 'overlay' && tile.imgOverlay) {
+			image(tile.imgOverlay, x, y, size, size);
+			return;
 		}
-		return;
 	}
 
 	if (tile && tile.failed) return;
 
 	let parentLod = lod + 1;
 	const maxFallbackLod = 10;
-	let drawnFallback = false;
 
 	while (parentLod <= maxFallbackLod) {
 		const lodGap = parentLod - lod;
 		const scaleDiff = 1 << lodGap;
-
 		const pTx = Math.floor(tx / scaleDiff);
 		const pTy = Math.floor(ty / scaleDiff);
 		const pKey = tileKey(pTx, pTy, parentLod, currentDimension);
-
 		const pTile = tileCache[pKey];
 
-		if (pTile && pTile.loaded && pTile.imgBase) {
+		if (pTile && pTile.loaded) {
 			const offsetX = tx - (pTx * scaleDiff);
 			const offsetY = ty - (pTy * scaleDiff);
-
 			const sSize = 512 / scaleDiff;
-
 			let sX = Math.floor(offsetX * sSize);
 			let sY = Math.floor(offsetY * sSize);
 			let sW = Math.ceil(sSize);
 			let sH = Math.ceil(sSize);
 
-			if (sX < 0) sX = 0;
-			if (sY < 0) sY = 0;
-			if (sX + sW > 512) sW = 512 - sX;
-			if (sY + sH > 512) sH = 512 - sY;
-
-			if (sW > 0 && sH > 0) {
+			// draw requested layer
+			if (layer === 'base' && pTile.imgBase) {
 				image(pTile.imgBase, x, y, size, size, sX, sY, sW, sH);
-
-				if (pTile.imgOverlay) {
-					image(pTile.imgOverlay, x, y, size, size, sX, sY, sW, sH);
-				}
-
-				drawnFallback = true;
-				tileCache[pKey].timestamp = Date.now();
-				break;
+				return;
+			} else if (layer === 'overlay' && pTile.imgOverlay) {
+				image(pTile.imgOverlay, x, y, size, size, sX, sY, sW, sH);
+				return;
 			}
 		}
 		parentLod++;
@@ -340,15 +327,10 @@ function drawTile(tx, ty, lod, x, y, size, loadIfUncached = true, loadingForLowQ
 		const childSize = size / 2;
 		const childTx = tx * 2;
 		const childTy = ty * 2;
-
-		drawTile(childTx, childTy, childLod, x, y, childSize, false, true);
-		drawTile(childTx + 1, childTy, childLod, x + childSize, y, childSize, false, true);
-		drawTile(childTx, childTy + 1, childLod, x, y + childSize, childSize, false, true);
-		drawTile(childTx + 1, childTy + 1, childLod, x + childSize, y + childSize, childSize, false, true);
-	}
-
-	if (tile && tile.loading && Date.now() - tile.timestamp > 5000) {
-		// image(loadImage('/errortile.png'), x, y, size, size);
+		drawTile(childTx, childTy, childLod, x, y, childSize, false, true, currentDwell, layer);
+		drawTile(childTx + 1, childTy, childLod, x + childSize, y, childSize, false, true, currentDwell, layer);
+		drawTile(childTx, childTy + 1, childLod, x, y + childSize, childSize, false, true, currentDwell, layer);
+		drawTile(childTx + 1, childTy + 1, childLod, x + childSize, y + childSize, childSize, false, true, currentDwell, layer);
 	}
 }
 
@@ -398,15 +380,15 @@ window.addEventListener('keydown', (e) => {
 });
 
 function handleCoordinateSearch(val) {
-    const coords = val.split(/[ ,]+/);
-    if (coords.length >= 2) {
-        const x = parseFloat(coords[0]);
-        const y = parseFloat(coords[1]);
-        
-        if (!isNaN(x) && !isNaN(y)) {
-            camera.x = x;
-            camera.y = y;
-            console.log(`Jumped to: ${x}, ${y}`);
-        }
-    }
+	const coords = val.split(/[ ,]+/);
+	if (coords.length >= 2) {
+		const x = parseFloat(coords[0]);
+		const y = parseFloat(coords[1]);
+
+		if (!isNaN(x) && !isNaN(y)) {
+			camera.x = x;
+			camera.y = y;
+			console.log(`Jumped to: ${x}, ${y}`);
+		}
+	}
 }
