@@ -103,7 +103,7 @@ function draw() {
 	}
 	// sort tiles
 	tilesToDraw.sort((a, b) => a.dist - b.dist);
-	const isFastMoving = Math.abs(cameraVel) > 0.01;
+	const isFastMoving = Math.abs(cameraVel) > 0.005;
 	const dynamicDwell = isFastMoving ? 600 : 50;
 
 	// draw base
