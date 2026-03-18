@@ -103,24 +103,23 @@ function draw() {
 	}
 	// sort tiles
 	tilesToDraw.sort((a, b) => a.dist - b.dist);
-	const isFastMoving = Math.abs(cameraVel) > 0.02;
+	const isFastMoving = Math.abs(cameraVel) > 0.01;
+	const dynamicDwell = isFastMoving ? 600 : 50;
 
 	// draw base
 	tilesToDraw.forEach((tile, index) => {
 		const drawX = Math.floor(tile.tx * tileSize);
 		const drawY = Math.floor(tile.ty * tileSize);
-		const currentDwell = (index < 9) ? 50 : 500;
 
-		drawTile(tile.tx, tile.ty, lod, drawX, drawY, Math.floor(tileSize), !isFastMoving, false, currentDwell, 'base');
+		drawTile(tile.tx, tile.ty, lod, drawX, drawY, Math.floor(tileSize), !isFastMoving, false, dynamicDwell, 'base');
 	});
 
 	// overlay
 	tilesToDraw.forEach((tile, index) => {
 		const drawX = Math.floor(tile.tx * tileSize);
 		const drawY = Math.floor(tile.ty * tileSize);
-		const currentDwell = (index < 9) ? 50 : 500;
 
-		drawTile(tile.tx, tile.ty, lod, drawX, drawY, Math.ceil(tileSize + 2), !isFastMoving, false, currentDwell, 'overlay');
+		drawTile(tile.tx, tile.ty, lod, drawX, drawY, Math.ceil(tileSize + 2), !isFastMoving, false, dynamicDwell, 'overlay');
 	});
 
 	if (frameCount % 120 == 0) {
