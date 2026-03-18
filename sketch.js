@@ -285,11 +285,8 @@ async function loadTile(lod, tx, ty, allowLoading = true) {
 }
 
 function drawTile(tx, ty, lod, x, y, size, loadIfUncached = true, loadingForLowQual = false, currentDwell = 500, layer = 'base') {
-	const speedThreshold = Math.min(6, Math.floor(smoothCamVel / 5));
-	const effectiveLod = Math.max(lod, speedThreshold);
-	const isAllowedToLoad = loadIfUncached && (lod >= effectiveLod);
-
 	const key = tileKey(tx, ty, lod, currentDimension);
+	activeTileKeys.add(key);
 
 	let tile = tileCache[key];
 	if (!tile) {
@@ -297,21 +294,20 @@ function drawTile(tx, ty, lod, x, y, size, loadIfUncached = true, loadingForLowQ
 		tileCache[key] = tile;
 	}
 
-	if (layer === 'base' && isAllowedToLoad) {
-		const shouldLoad = !tile.loading && !tile.loaded && !tile.failed && (Date.now() - tile.firstSeen > currentDwell);
-		if (shouldLoad) {
-			activeTileKeys.add(key);
-			loadTile(lod, tx, ty, loadIfUncached);
+	if (layer === 'base' && loadIfUncached) {
+		const speedThreshold = Math.min(6, Math.floor(smoothCamVel / 5));
+		if (lod >= speedThreshold) {
+			const shouldLoad = !tile.loading && !tile.loaded && !tile.failed && (Date.now() - tile.firstSeen > currentDwell);
+			if (shouldLoad) {
+				loadTile(lod, tx, ty, true);
+			}
 		}
 	}
 
 	if (tile && tile.loaded) {
-		activeTileKeys.add(key);
-		if (layer === 'base' && tile.imgBase) {
-			image(tile.imgBase, x, y, size, size);
-			return;
-		} else if (layer === 'overlay' && tile.imgOverlay) {
-			image(tile.imgOverlay, x, y, size, size);
+		const img = (layer === 'base') ? tile.imgBase : tile.imgOverlay;
+		if (img) {
+			image(img, x, y, size, size);
 			return;
 		}
 	}
@@ -319,31 +315,22 @@ function drawTile(tx, ty, lod, x, y, size, loadIfUncached = true, loadingForLowQ
 	if (tile && tile.failed) return;
 
 	let parentLod = lod + 1;
-
 	while (parentLod <= 10) {
-		const lodGap = parentLod - lod;
-		const scaleDiff = 1 << lodGap;
-		const pTx = Math.floor(tx / scaleDiff);
-		const pTy = Math.floor(ty / scaleDiff);
+		const scale = 1 << (parentLod - lod);
+		const pTx = Math.floor(tx / scale);
+		const pTy = Math.floor(ty / scale);
 		const pKey = tileKey(pTx, pTy, parentLod, currentDimension);
+		
 		const pTile = tileCache[pKey];
-
 		if (pTile && pTile.loaded) {
 			activeTileKeys.add(pKey);
-			const offsetX = tx - (pTx * scaleDiff);
-			const offsetY = ty - (pTy * scaleDiff);
-			const sSize = 512 / scaleDiff;
-			let sX = Math.floor(offsetX * sSize);
-			let sY = Math.floor(offsetY * sSize);
-			let sW = Math.ceil(sSize);
-			let sH = Math.ceil(sSize);
 
-			// draw requested layer
-			if (layer === 'base' && pTile.imgBase) {
-				image(pTile.imgBase, x, y, size, size, sX, sY, sW, sH);
-				return;
-			} else if (layer === 'overlay' && pTile.imgOverlay) {
-				image(pTile.imgOverlay, x, y, size, size, sX, sY, sW, sH);
+			const subSize = 512 / scale;
+			const sx = (tx % scale) * subSize;
+			const sy = (ty % scale) * subSize;
+			const img = (layer === 'base') ? pTile.imgBase : pTile.imgOverlay;
+			if (img) {
+				image(img, x, y, size, size, sx, sy, subSize, subSize);
 				return;
 			}
 		}
