@@ -164,7 +164,6 @@ function mouseWheel(event) {
 	// includes both X and Y for supported devices
 	mouseScrollX = event.deltaX;
 	mouseScrollY = event.deltaY;
-	console.log(mouseScrollX, mouseScrollY, isTrackpad)
 	// return required for safari browser to be supported
 	return false;
 }
@@ -215,8 +214,6 @@ function update() {
 		camera.y += mouseScrollY / camera.zoom;
 		cameraVel = 0;
 	}
-
-	console.log(camera.zoom)
 }
 
 function windowResized() {
@@ -294,7 +291,6 @@ function drawTile(tx, ty, lod, x, y, size, loadIfUncached = true, loadingForLowQ
 	const isAllowedToLoad = loadIfUncached && (lod >= effectiveLod);
 
 	const key = tileKey(tx, ty, lod, currentDimension);
-	activeTileKeys.add(key);
 
 	let tile = tileCache[key];
 	if (!tile) {
@@ -304,10 +300,14 @@ function drawTile(tx, ty, lod, x, y, size, loadIfUncached = true, loadingForLowQ
 
 	if (layer === 'base' && isAllowedToLoad) {
 		const shouldLoad = !tile.loading && !tile.loaded && !tile.failed && (Date.now() - tile.firstSeen > currentDwell);
-		if (shouldLoad) loadTile(lod, tx, ty, loadIfUncached);
+		if (shouldLoad) {
+			activeTileKeys.add(key);
+			loadTile(lod, tx, ty, loadIfUncached);
+		}
 	}
 
 	if (tile && tile.loaded) {
+		activeTileKeys.add(key);
 		if (layer === 'base' && tile.imgBase) {
 			image(tile.imgBase, x, y, size, size);
 			return;
@@ -320,9 +320,8 @@ function drawTile(tx, ty, lod, x, y, size, loadIfUncached = true, loadingForLowQ
 	if (tile && tile.failed) return;
 
 	let parentLod = lod + 1;
-	const maxFallbackLod = 10;
 
-	while (parentLod <= maxFallbackLod) {
+	while (parentLod <= 10) {
 		const lodGap = parentLod - lod;
 		const scaleDiff = 1 << lodGap;
 		const pTx = Math.floor(tx / scaleDiff);
@@ -331,6 +330,7 @@ function drawTile(tx, ty, lod, x, y, size, loadIfUncached = true, loadingForLowQ
 		const pTile = tileCache[pKey];
 
 		if (pTile && pTile.loaded) {
+			activeTileKeys.add(pKey);
 			const offsetX = tx - (pTx * scaleDiff);
 			const offsetY = ty - (pTy * scaleDiff);
 			const sSize = 512 / scaleDiff;
@@ -417,7 +417,6 @@ function handleCoordinateSearch(val) {
 		if (!isNaN(x) && !isNaN(y)) {
 			camera.x = x;
 			camera.y = y;
-			console.log(`Jumped to: ${x}, ${y}`);
 		}
 	}
 }
