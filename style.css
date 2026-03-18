@@ -119,22 +119,29 @@
   object-fit: contain;
 }
 
-.searchBar {
+.ui {
   z-index: 100;
   position: absolute;
-  width: 300px;
-  height: 40px;
   padding: 0px 15px;
+  height: 40px;
   background-color: rgba(0, 0, 0, 0.7);
   border: 1px solid rgba(255, 255, 255, 0.05);
-  top: 10px;
-  left: 10px;
   border-radius: 25px;
   backdrop-filter: blur(50px);
   display: flex;
   align-items: center;
   gap: 15px;
-  color: rgba(255, 255, 255, 0.522);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.ui.noFloat {
+  position: initial;
+}
+
+.searchBar {
+  top: 10px;
+  left: 10px;
+  width: 300px;
 }
 
 .searchBar #search {
@@ -144,55 +151,11 @@
   width: 100%;
 }
 
-.searchPane {
+.topRight {
   z-index: 100;
   position: absolute;
-  width: 300px;
-  height: 300px;
-  padding: 10px 15px;
-  background-color: rgba(0, 0, 0, 0.7);
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  top: 55px;
-  left: 10px;
-  border-radius: 25px;
-  backdrop-filter: blur(50px);
+  top: 10px;
+  right: 10px;
   display: flex;
-  gap: 15px;
-  color: rgba(255, 255, 255, 0.522);
-}
-
-.findBar {
-  z-index: 100;
-  position: absolute;
-  width: 20vw;
-  height: 40px;
-  padding: 0px 15px;
-  background-color: rgba(0, 0, 0, 0.7);
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  top: 270px;
-  left: 40vw;
-  border-radius: 25px;
-  backdrop-filter: blur(10px);
-  align-items: center;
-  gap: 15px;
-  display: flex;
-  color: rgba(255, 255, 255, 0.522);
-  opacity: 0;
-  scale: 0.9;
-  pointer-events: none;
-  transition: top .3s, opacity .3s, scale .3s;
-}
-
-.findBar:has(#find:focus) {
-  opacity: 1 !important;
-  top: 250px;
-  scale: 1;
-  pointer-events: all;
-}
-
-.findBar #find {
-  background-color: transparent;
-  border: none;
-  outline: none;
-  width: 100%;
+  gap: 10px;
 }

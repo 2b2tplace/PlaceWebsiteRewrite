@@ -14,7 +14,8 @@ let activeTileKeys = new Set();
 let currentDimension = 0;
 
 // elements
-let findInput;
+let searchInput;
+let coordinateText;
 
 function setup() {
 	createCanvas(windowWidth, windowHeight, WEBGL);
@@ -24,16 +25,18 @@ function setup() {
 	frameRate(120);
 
 	// element setup
-	findInput = document.getElementById('find');
-	findInput.addEventListener('keydown', (e) => {
+	searchInput = document.getElementById('search');
+	searchInput.addEventListener('keydown', (e) => {
 		if (e.key === 'Enter') {
-			handleCoordinateSearch(findInput.value);
-			findInput.blur();
+			handleCoordinateSearch(searchInput.value);
+			searchInput.blur();
 		}
 		if (e.key === 'Escape') {
-			findInput.blur();
+			searchInput.blur();
 		}
 	});
+
+	coordinateText = document.getElementById('coordinateText');
 
 	createIcons();
 }
@@ -117,7 +120,7 @@ function draw() {
 		const drawY = Math.floor(tile.ty * tileSize);
 		const currentDwell = (index < 9) ? 50 : 500;
 
-		drawTile(tile.tx, tile.ty, lod, drawX, drawY, Math.ceil(tileSize+2), !isFastMoving, false, currentDwell, 'overlay');
+		drawTile(tile.tx, tile.ty, lod, drawX, drawY, Math.ceil(tileSize + 2), !isFastMoving, false, currentDwell, 'overlay');
 	});
 
 	if (frameCount % 120 == 0) {
@@ -142,6 +145,8 @@ function draw() {
 		camera.y = Math.round(originalCameraY + ((originalMouseY - mouseY) / camera.zoom));
 	}
 
+	coordinateText.innerText = `${Math.round(mouse.x)} ${Math.round(mouse.y)}`;
+
 	// reset mouse scroll
 	mouseScrollX = 0;
 	mouseScrollY = 0;
@@ -165,29 +170,53 @@ function mouseWheel(event) {
 }
 
 function update() {
+	const ZOOM_SMOOTHING = 5;
+	const LOG_ZOOM_MIN = -9;
+	const LOG_ZOOM_MAX = 4;
+	const ROUND_ZOOM = 100000;
+	const ROUND_VEL = 10000;
+
 	if (!isTrackpad) {
-		// apply exponential zoom step
-		intendedCamZoom *= Math.exp(
-			(Math.abs(mouseScrollY) < 50 ? mouseScrollY * 10 : mouseScrollY) / -250
-		);
+		const scroll = Math.abs(mouseScrollY) < 50 ? mouseScrollY * 10 : mouseScrollY;
+
+		intendedCamZoom *= Math.exp(scroll / -250);
+
 		// clamp in log space
 		const logZoom = Math.log(intendedCamZoom);
-		const clampedLogZoom = Math.min(4, Math.max(-7, logZoom));
-		// convert back
-		intendedCamZoom = Math.exp(clampedLogZoom);
-		cameraVel = camera.zoom;
-		const newZoom = Math.round((camera.zoom + (intendedCamZoom - camera.zoom) / 5) * 1000) / 1000;
-		const zoomRatio = camera.zoom / newZoom;
+		intendedCamZoom = Math.exp(
+			Math.min(LOG_ZOOM_MAX, Math.max(LOG_ZOOM_MIN, logZoom))
+		);
+
+		// smooth zoom
+		const previousZoom = camera.zoom;
+
+		const newZoom =
+			Math.round(
+				(previousZoom +
+					(intendedCamZoom - previousZoom) / ZOOM_SMOOTHING) *
+				ROUND_ZOOM
+			) / ROUND_ZOOM;
+
 		camera.zoom = newZoom;
+
+		// zoom towards mouse
+		const zoomRatio = previousZoom / newZoom;
+
 		camera.x += (mouse.x - camera.x) * (1 - zoomRatio);
 		camera.y += (mouse.y - camera.y) * (1 - zoomRatio);
-		cameraVel = Math.round((cameraVel - camera.zoom) * 10000) / 10000;
-		console.log(cameraVel)
+
+		// velocity
+		cameraVel =
+			Math.round((previousZoom - newZoom) * ROUND_VEL) / ROUND_VEL;
+
 	} else {
+		// trackpad
 		camera.x += mouseScrollX / camera.zoom;
 		camera.y += mouseScrollY / camera.zoom;
 		cameraVel = 0;
 	}
+
+	console.log(camera.zoom)
 }
 
 function windowResized() {
@@ -374,8 +403,8 @@ function keyPressed() {
 window.addEventListener('keydown', (e) => {
 	if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
 		e.preventDefault();
-		findInput.focus();
-		findInput.select();
+		searchInput.focus();
+		searchInput.select();
 	}
 });
 
