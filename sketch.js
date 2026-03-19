@@ -151,8 +151,8 @@ function draw() {
 		originalCameraY = camera.y;
 	}
 	if (mouse.pressing('left')) {
-		camera.x = Math.round(originalCameraX + ((originalMouseX - mouseX) / camera.zoom));
-		camera.y = Math.round(originalCameraY + ((originalMouseY - mouseY) / camera.zoom));
+		camera.x = originalCameraX + ((originalMouseX - mouseX) / camera.zoom);
+		camera.y = originalCameraY + ((originalMouseY - mouseY) / camera.zoom);
 	}
 
 	coordinateText.innerText = `${Math.round(mouse.x)} ${Math.round(mouse.y)}`;
