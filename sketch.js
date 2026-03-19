@@ -143,7 +143,7 @@ function draw() {
 			const parallaxSize = Math.ceil((tileSize * (1 + parallax)) + 2);
 			drawTile(tile.tx, tile.ty, lod, parallaxX, parallaxY, Math.ceil(parallaxSize + 2), !isFastMoving, false, dynamicDwell, 'overlay');
 		});
-		noErase
+		noErase();
 		parallax = 0.5 * camera.zoom ** 2;
 		opacity(overlayOpacity);
 		tilesToDraw.forEach((tile, index) => {
