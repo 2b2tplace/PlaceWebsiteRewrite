@@ -201,3 +201,12 @@
 #coordinateText {
   height: 24px;
 }
+
+.layers {
+  bottom: 10px;
+  left: 10px;
+}
+
+.layers:hover {
+  height: 100px;
+}

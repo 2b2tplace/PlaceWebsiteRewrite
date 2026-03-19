@@ -125,6 +125,27 @@ function draw() {
 	}
 
 	if (overlayOpacity > 0) {
+		push();
+		opacity(0.5);
+		blendMode(REMOVE);
+		parallax = 0;
+		tilesToDraw.forEach((tile, index) => {
+			const drawX = Math.floor(tile.tx * tileSize) - 50;
+			const drawY = Math.floor(tile.ty * tileSize) + 50;
+
+			// parallax
+			const dx = drawX - camera.x;
+			const dy = drawY - camera.y;
+
+			const parallaxX = drawX + (dx * parallax);
+			const parallaxY = drawY + (dy * parallax);
+
+			const parallaxSize = Math.ceil((tileSize * (1 + parallax)) + 2);
+			drawTile(tile.tx, tile.ty, lod, parallaxX, parallaxY, Math.ceil(parallaxSize + 2), !isFastMoving, false, dynamicDwell, 'overlay');
+		});
+		parallax = 0.5 * camera.zoom ** 2;
+		opacity(overlayOpacity);
+		blendMode(NORMAL);
 		tilesToDraw.forEach((tile, index) => {
 			const drawX = Math.floor(tile.tx * tileSize);
 			const drawY = Math.floor(tile.ty * tileSize);
@@ -137,11 +158,9 @@ function draw() {
 			const parallaxY = drawY + (dy * parallax);
 
 			const parallaxSize = Math.ceil((tileSize * (1 + parallax)) + 2);
-			push();
-			opacity(overlayOpacity);
 			drawTile(tile.tx, tile.ty, lod, parallaxX, parallaxY, Math.ceil(parallaxSize + 2), !isFastMoving, false, dynamicDwell, 'overlay');
-			pop();
 		});
+		pop();
 	}
 
 	if (frameCount % 120 == 0) {
