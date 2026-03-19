@@ -115,7 +115,7 @@ function draw() {
 		drawTile(tile.tx, tile.ty, lod, drawX, drawY, Math.floor(tileSize), !isFastMoving, false, dynamicDwell, 'base');
 	});
 
-	OVERLAY_DEPTH = camera.zoom
+	OVERLAY_DEPTH = camera.zoom * 0.1
 	// overlay
 	tilesToDraw.forEach((tile, index) => {
 		const drawX = Math.floor(tile.tx * tileSize);
