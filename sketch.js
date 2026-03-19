@@ -12,7 +12,8 @@ let tilesToDraw = [];
 let inFlightRequests = new Set();
 let activeTileKeys = new Set();
 let currentDimension = 0;
-let OVERLAY_DEPTH = 0.5;
+let parallax = 0.5;
+let overlayOpacity = 1;
 
 // elements
 let searchInput;
@@ -115,23 +116,33 @@ function draw() {
 		drawTile(tile.tx, tile.ty, lod, drawX, drawY, Math.floor(tileSize), !isFastMoving, false, dynamicDwell, 'base');
 	});
 
-	OVERLAY_DEPTH = camera.zoom * 0.1
+	parallax = 0.5 * camera.zoom ** 2;
 	// overlay
-	tilesToDraw.forEach((tile, index) => {
-		const drawX = Math.floor(tile.tx * tileSize);
-		const drawY = Math.floor(tile.ty * tileSize);
-		
-		// parallax
-		const dx = drawX - camera.x;
-		const dy = drawY - camera.y;
+	if (parallax < 5) {
+		overlayOpacity = lerp(overlayOpacity, 1, 0.1);
+	} else {
+		overlayOpacity = lerp(overlayOpacity, 0, 0.1);
+	}
 
-		const parallaxX = drawX + (dx * OVERLAY_DEPTH);
-		const parallaxY = drawY + (dy * OVERLAY_DEPTH);
+	if (overlayOpacity > 0) {
+		tilesToDraw.forEach((tile, index) => {
+			const drawX = Math.floor(tile.tx * tileSize);
+			const drawY = Math.floor(tile.ty * tileSize);
 
-		const parallaxSize = Math.ceil((tileSize * (1 + OVERLAY_DEPTH)) + 2);
+			// parallax
+			const dx = drawX - camera.x;
+			const dy = drawY - camera.y;
 
-		drawTile(tile.tx, tile.ty, lod, parallaxX, parallaxY, Math.ceil(parallaxSize + 2), !isFastMoving, false, dynamicDwell, 'overlay');
-	});
+			const parallaxX = drawX + (dx * parallax);
+			const parallaxY = drawY + (dy * parallax);
+
+			const parallaxSize = Math.ceil((tileSize * (1 + parallax)) + 2);
+			push();
+			opacity(overlayOpacity);
+			drawTile(tile.tx, tile.ty, lod, parallaxX, parallaxY, Math.ceil(parallaxSize + 2), !isFastMoving, false, dynamicDwell, 'overlay');
+			pop();
+		});
+	}
 
 	if (frameCount % 120 == 0) {
 		pruneCache();
