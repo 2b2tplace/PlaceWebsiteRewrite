@@ -12,6 +12,7 @@ let tilesToDraw = [];
 let inFlightRequests = new Set();
 let activeTileKeys = new Set();
 let currentDimension = 0;
+let OVERLAY_DEPTH = 0.5;
 
 // elements
 let searchInput;
@@ -61,10 +62,10 @@ function draw() {
 	lastCamY = camera.y;
 
 	const tileSize = Math.round(512 * 2 ** lod)
-	const borderLod = (lod + 1) > 10 ? 10 : lod + 1;
+	const borderLod = (lod + 2) > 10 ? 10 : lod + 2;
 	if (borderLod !== lod) {
 		const borderTileSize = 512 * 2 ** borderLod;
-		const borderPadding = 2;
+		const borderPadding = 1;
 
 		const borderTLX = Math.floor((camera.x - halfWidth / camera.zoom) / borderTileSize) - borderPadding;
 		const borderTLY = Math.floor((camera.y - halfHeight / camera.zoom) / borderTileSize) - borderPadding;
@@ -118,8 +119,17 @@ function draw() {
 	tilesToDraw.forEach((tile, index) => {
 		const drawX = Math.floor(tile.tx * tileSize);
 		const drawY = Math.floor(tile.ty * tileSize);
+		
+		// parallax
+		const dx = drawX - camera.x;
+		const dy = drawY - camera.y;
 
-		drawTile(tile.tx, tile.ty, lod, drawX, drawY, Math.ceil(tileSize + 2), !isFastMoving, false, dynamicDwell, 'overlay');
+		const parallaxX = drawX + (dx * OVERLAY_DEPTH);
+		const parallaxY = drawY + (dy * OVERLAY_DEPTH);
+
+		const parallaxSize = Math.ceil((tileSize * (1 + OVERLAY_DEPTH)) + 2);
+
+		drawTile(tile.tx, tile.ty, lod, parallaxX, parallaxY, Math.ceil(parallaxSize + 2), !isFastMoving, false, dynamicDwell, 'overlay');
 	});
 
 	if (frameCount % 120 == 0) {

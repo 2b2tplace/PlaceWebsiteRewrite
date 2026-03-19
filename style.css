@@ -151,6 +151,44 @@
   width: 100%;
 }
 
+.searchPanel {
+  left: 10px;
+  top: 60px;
+  width: 300px;
+  height: auto;
+  padding: 10px 15px;
+  align-items: baseline;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.searchPanel .subheading {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.searchPanel .item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.searchPanel .item .icon {
+  width: 25px;
+  height: 25px;
+}
+
+.searchPanel .item .name {
+  font-size: 15px;
+  font-weight: 400;
+}
+
+.searchPanel .item .tag {
+  font-size: 13px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.6);
+}
+
 .topRight {
   z-index: 100;
   position: absolute;
@@ -158,4 +196,8 @@
   right: 10px;
   display: flex;
   gap: 10px;
+}
+
+#coordinateText {
+  height: 24px;
 }
