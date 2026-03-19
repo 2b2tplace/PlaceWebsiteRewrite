@@ -20,7 +20,7 @@ let searchInput;
 let coordinateText;
 
 function setup() {
-	createCanvas(windowWidth, windowHeight);
+	createCanvas(windowWidth, windowHeight, P2D);
 	camera.on();
 	camera.x = 0;
 	camera.y = 0;
@@ -127,7 +127,7 @@ function draw() {
 	if (overlayOpacity > 0) {
 		push();
 		opacity(0.5);
-		blendMode(REMOVE);
+		erase();
 		parallax = 0;
 		tilesToDraw.forEach((tile, index) => {
 			const drawX = Math.floor(tile.tx * tileSize) - 50;
@@ -143,9 +143,9 @@ function draw() {
 			const parallaxSize = Math.ceil((tileSize * (1 + parallax)) + 2);
 			drawTile(tile.tx, tile.ty, lod, parallaxX, parallaxY, Math.ceil(parallaxSize + 2), !isFastMoving, false, dynamicDwell, 'overlay');
 		});
+		noErase
 		parallax = 0.5 * camera.zoom ** 2;
 		opacity(overlayOpacity);
-		blendMode(NORMAL);
 		tilesToDraw.forEach((tile, index) => {
 			const drawX = Math.floor(tile.tx * tileSize);
 			const drawY = Math.floor(tile.ty * tileSize);
