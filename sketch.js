@@ -1,5 +1,6 @@
 let originalMouseX, originalMouseY, originalCameraX, originalCameraY;
 let lastCamX = 0, lastCamY = 0;
+let prevCamX = 0, prevCamY = 0, prevCamZoom = 1;
 let smoothCamVel = 0;
 let lod;
 let intendedCamZoom = 1;
@@ -96,6 +97,14 @@ function draw() {
 	noSmooth();
 	tilesToDraw.length = 0;
 	activeTileKeys.clear();
+
+	if (camera.x !== prevCamX || camera.y !== prevCamY || camera.zoom !== prevCamZoom) {
+		abortAllInFlight();
+	}
+
+	prevCamX = camera.x;
+	prevCamY = camera.y;
+	prevCamZoom = camera.zoom;
 
 	if (cameraVel >= 0) {
 		lod = Math.floor(-Math.log2(camera.zoom));
@@ -466,6 +475,17 @@ function abortTile(key) {
 		delete tileCache[key];
 		inFlightRequests.delete(key);
 	}
+}
+
+function abortAllInFlight() {
+	for (let key of inFlightRequests) {
+		const tile = tileCache[key];
+		if (tile && tile.controller) {
+			tile.controller.abort();
+			delete tileCache[key];
+		}
+	}
+	inFlightRequests.clear();
 }
 
 function pruneCache() {
