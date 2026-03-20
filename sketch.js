@@ -98,7 +98,7 @@ function draw() {
 	tilesToDraw.length = 0;
 	activeTileKeys.clear();
 
-	if (camera.x !== prevCamX || camera.y !== prevCamY || camera.zoom !== prevCamZoom) {
+	if (Math.round(camera.x) !== Math.round(prevCamX) || Math.round(camera.y) !== Math.round(prevCamY) || Math.round(camera.zoom) !== Math.round(prevCamZoom)) {
 		abortAllInFlight();
 	}
 
