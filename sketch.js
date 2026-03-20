@@ -374,7 +374,7 @@ function drawTile(tx, ty, lod, x, y, size, loadIfUncached = true, loadingForLowQ
 		tileCache[key] = tile;
 	}
 
-	if (layer === 'base' || layer == 'overlay' && isAllowedToLoad) {
+	if (layer === 'base' || ((layer === 'overlay' || layer === 'newchunks') && isAllowedToLoad)) {
 		const shouldLoad = !tile.loading && !tile.loaded && !tile.failed && (Date.now() - tile.firstSeen > currentDwell);
 		if (shouldLoad) {
 			activeTileKeys.add(key);
@@ -384,11 +384,14 @@ function drawTile(tx, ty, lod, x, y, size, loadIfUncached = true, loadingForLowQ
 
 	if (tile && tile.loaded) {
 		activeTileKeys.add(key);
-		if (layer === 'base' && tile.imgBase) {
-			image(tile.imgBase, x, y, size, size);
-			return;
-		} else if (layer === 'overlay' && tile.imgOverlay) {
-			image(tile.imgOverlay, x, y, size, size);
+
+		let img = null;
+		if (layer === 'base') img = tile.imgBase;
+		else if (layer === 'overlay') img = tile.imgOverlay;
+		else if (layer === 'newchunks') img = tile.imgNewChunks;
+
+		if (img) {
+			image(img, x, y, size, size);
 			return;
 		}
 	}
@@ -407,20 +410,22 @@ function drawTile(tx, ty, lod, x, y, size, loadIfUncached = true, loadingForLowQ
 
 		if (pTile && pTile.loaded) {
 			activeTileKeys.add(pKey);
-			const offsetX = tx - (pTx * scaleDiff);
-			const offsetY = ty - (pTy * scaleDiff);
-			const sSize = 512 / scaleDiff;
-			let sX = Math.floor(offsetX * sSize);
-			let sY = Math.floor(offsetY * sSize);
-			let sW = Math.ceil(sSize);
-			let sH = Math.ceil(sSize);
 
-			// draw requested layer
-			if (layer === 'base' && pTile.imgBase) {
-				image(pTile.imgBase, x, y, size, size, sX, sY, sW, sH);
-				return;
-			} else if (layer === 'overlay' && pTile.imgOverlay) {
-				image(pTile.imgOverlay, x, y, size, size, sX, sY, sW, sH);
+			let img = null;
+			if (layer === 'base') img = pTile.imgBase;
+			else if (layer === 'overlay') img = pTile.imgOverlay;
+			else if (layer === 'newchunks') img = pTile.imgNewChunks;
+
+			if (img) {
+				const offsetX = tx - (pTx * scaleDiff);
+				const offsetY = ty - (pTy * scaleDiff);
+				const sSize = 512 / scaleDiff;
+				let sX = Math.floor(offsetX * sSize);
+				let sY = Math.floor(offsetY * sSize);
+				let sW = Math.ceil(sSize);
+				let sH = Math.ceil(sSize);
+
+				image(img, x, y, size, size, sX, sY, sW, sH);
 				return;
 			}
 		}
@@ -481,12 +486,11 @@ function renderLayer(tx, ty, lod, x, y, size, type) {
 
 	if (tile && tile.loaded) {
 		activeTileKeys.add(key);
-		const imgMap = {
-			'base': tile.imgBase,
-			'overlay': tile.imgOverlay,
-			'newchunks': tile.imgNewChunks
-		};
-		const img = imgMap[type];
+
+		let img = null;
+		if (type === 'base') img = tile.imgBase;
+		else if (type === 'overlay') img = tile.imgOverlay;
+		else if (type === 'newchunks') img = tile.imgNewChunks;
 
 		if (img) {
 			image(img, x, y, size, size);
@@ -505,12 +509,11 @@ function renderLayer(tx, ty, lod, x, y, size, type) {
 
 		if (pTile && pTile.loaded) {
 			activeTileKeys.add(pKey);
-			const imgMap = {
-				'base': pTile.imgBase,
-				'overlay': pTile.imgOverlay,
-				'newchunks': pTile.imgNewChunks
-			};
-			const img = imgMap[type];
+
+			let img = null;
+			if (type === 'base') img = pTile.imgBase;
+			else if (type === 'overlay') img = pTile.imgOverlay;
+			else if (type === 'newchunks') img = pTile.imgNewChunks;
 
 			if (img) {
 				const offsetX = tx - (pTx * scaleDiff);
