@@ -15,9 +15,31 @@ let currentDimension = 0;
 let parallax = 0.5;
 let overlayOpacity = 1;
 
+let layers = {
+	"World": {
+		icon: "world",
+		visible: true,
+		opacity: 1,
+		type: 'base'
+	},
+	"Obsidian": {
+		icon: "obsidian",
+		visible: true,
+		opacity: 1,
+		type: 'overlay'
+	},
+	"NewChunks": {
+		icon: "chunkhighlights",
+		visible: false,
+		opacity: 0.5,
+		type: 'newchunks'
+	}
+}
+
 // elements
 let searchInput;
 let coordinateText;
+let layersButton;
 
 function setup() {
 	createCanvas(windowWidth, windowHeight, P2D);
@@ -39,6 +61,30 @@ function setup() {
 	});
 
 	coordinateText = document.getElementById('coordinateText');
+
+	layersButton = document.getElementById('layers');
+	for (const [name, layer] of Object.entries(layers)) {
+
+		const item = document.createElement("div");
+		item.className = "item";
+
+		const visibilityIcon = document.createElement("img");
+		visibilityIcon.className = "icon";
+		visibilityIcon.src = `/icon/${layer.visible ? "checked" : "unchecked"}.png`;
+
+		visibilityIcon.addEventListener("click", (e) => {
+			layer.visible = !layer.visible;
+			e.target.src = `/icon/${layer.visible ? "checked" : "unchecked"}.png`;
+		});
+
+		const layerIcon = document.createElement("img");
+		layerIcon.className = "icon";
+		layerIcon.src = `/icon/${layer.icon}.png`;
+
+		item.append(visibilityIcon, layerIcon, name);
+
+		layersButton.appendChild(item);
+	}
 
 	createIcons();
 }
@@ -73,11 +119,13 @@ function draw() {
 		const borderBRX = Math.floor((camera.x + halfWidth / camera.zoom) / borderTileSize) + borderPadding;
 		const borderBRY = Math.floor((camera.y + halfHeight / camera.zoom) / borderTileSize) + borderPadding;
 
-		for (let j = borderTLY; j <= borderBRY; j++) {
-			for (let i = borderTLX; i <= borderBRX; i++) {
-				const drawX = i * borderTileSize;
-				const drawY = j * borderTileSize;
-				drawTile(i, j, borderLod, drawX, drawY, borderTileSize, true, true);
+		if (layers.World.visible) {
+			for (let j = borderTLY; j <= borderBRY; j++) {
+				for (let i = borderTLX; i <= borderBRX; i++) {
+					const drawX = i * borderTileSize;
+					const drawY = j * borderTileSize;
+					drawTile(i, j, borderLod, drawX, drawY, borderTileSize, true, true);
+				}
 			}
 		}
 	}
@@ -90,56 +138,67 @@ function draw() {
 	const centerX = (topLeftTileX + bottomRightTileX) / 2;
 	const centerY = (topLeftTileY + bottomRightTileY) / 2;
 
-	for (let j = 0; j < (bottomRightTileY - topLeftTileY) + 1; j++) {
-		for (let i = 0; i < (bottomRightTileX - topLeftTileX) + 1; i++) {
+	for (let j = 0; j <= (bottomRightTileY - topLeftTileY); j++) {
+		for (let i = 0; i <= (bottomRightTileX - topLeftTileX); i++) {
 			const tx = topLeftTileX + i;
 			const ty = topLeftTileY + j;
 
-			// no need to sqrt because i dont need perfect distance calc
-			const dx = tx - centerX;
-			const dy = ty - centerY;
-			const dist = dx ** 2 + dy ** 2;
-
+			const dist = (tx - centerX) ** 2 + (ty - centerY) ** 2;
 			tilesToDraw.push({ tx, ty, dist });
 		}
 	}
+
 	// sort tiles
 	tilesToDraw.sort((a, b) => a.dist - b.dist);
+	const anyTileLayerVisible = layers.World.visible || layers.Obsidian.visible || layers.NewChunks.visible;
 	const isFastMoving = Math.abs(cameraVel) > 0.005;
 	const dynamicDwell = isFastMoving ? 600 : 50;
 
 	// draw base
-	tilesToDraw.forEach((tile, index) => {
-		const drawX = Math.floor(tile.tx * tileSize);
-		const drawY = Math.floor(tile.ty * tileSize);
-
-		drawTile(tile.tx, tile.ty, lod, drawX, drawY, Math.floor(tileSize), !isFastMoving, false, dynamicDwell, 'base');
-	});
-
-	parallax = 0.5 * camera.zoom ** 2;
-	// overlay
-	if (parallax < 5) {
-		overlayOpacity = lerp(overlayOpacity, 1, 0.1);
-	} else {
-		overlayOpacity = lerp(overlayOpacity, 0, 0.1);
+	if (anyTileLayerVisible) {
+		tilesToDraw.forEach(tile => {
+			requestTile(tile.tx, tile.ty, lod, dynamicDwell);
+		});
 	}
 
-	if (overlayOpacity > 0) {
+	if (layers.World.visible) {
 		push();
-		opacity(overlayOpacity);
-		tilesToDraw.forEach((tile, index) => {
+		opacity(layers.World.opacity);
+		tilesToDraw.forEach(tile => {
 			const drawX = Math.floor(tile.tx * tileSize);
 			const drawY = Math.floor(tile.ty * tileSize);
+			renderLayer(tile.tx, tile.ty, lod, drawX, drawY, tileSize, 'base');
+		});
+		pop();
+	}
 
-			// parallax
+	parallax = 0.5 * camera.zoom ** 2;
+	overlayOpacity = parallax < 5 ? lerp(overlayOpacity, 1, 0.1) : lerp(overlayOpacity, 0, 0.1);
+
+	if (layers.Obsidian.visible && overlayOpacity > 0) {
+		push();
+		opacity(overlayOpacity * layers.Obsidian.opacity);
+		tilesToDraw.forEach(tile => {
+			const drawX = Math.floor(tile.tx * tileSize);
+			const drawY = Math.floor(tile.ty * tileSize);
 			const dx = drawX - camera.x;
 			const dy = drawY - camera.y;
+			const px = drawX + (dx * parallax);
+			const py = drawY + (dy * parallax);
+			const pSize = Math.ceil((tileSize * (1 + parallax)) + 2);
 
-			const parallaxX = drawX + (dx * parallax);
-			const parallaxY = drawY + (dy * parallax);
+			renderLayer(tile.tx, tile.ty, lod, px, py, pSize, 'overlay');
+		});
+		pop();
+	}
 
-			const parallaxSize = Math.ceil((tileSize * (1 + parallax)) + 2);
-			drawTile(tile.tx, tile.ty, lod, parallaxX, parallaxY, Math.ceil(parallaxSize + 2), !isFastMoving, false, dynamicDwell, 'overlay');
+	if (layers.NewChunks.visible) {
+		push();
+		opacity(layers.NewChunks.opacity);
+		tilesToDraw.forEach(tile => {
+			const drawX = Math.floor(tile.tx * tileSize);
+			const drawY = Math.floor(tile.ty * tileSize);
+			renderLayer(tile.tx, tile.ty, lod, drawX, drawY, tileSize, 'newchunks');
 		});
 		pop();
 	}
@@ -264,43 +323,39 @@ async function loadTile(lod, tx, ty, allowLoading = true) {
 		const sy = (ty / 32) >> 0;
 		const urlBase = `/tiles/base/${lod}/${currentDimension}/${sx}/${sy}/t.${tx}.${ty}.webp`;
 		const urlOverlay = `/tiles/overlay/${lod}/${currentDimension}/${sx}/${sy}/t.${tx}.${ty}.webp`;
+		const urlNewChunks = `/tiles/newchunks/${lod}/${currentDimension}/${sx}/${sy}/t.${tx}.${ty}.webp`;
 
-		const [resBase, resOverlay] = await Promise.all([
+		const [resBase, resOverlay, resNewChunks] = await Promise.all([
 			fetch(urlBase, { signal: controller.signal }),
-			fetch(urlOverlay, { signal: controller.signal })
+			fetch(urlOverlay, { signal: controller.signal }),
+			fetch(urlNewChunks, { signal: controller.signal })
 		]);
 
 		if (!resBase.ok) throw new Error(`Base tile ${tx},${ty} not found`);
 		const bitmapBase = await createImageBitmap(await resBase.blob());
 
-		// decode if base comes back ok
 		let bitmapOverlay = null;
 		if (resOverlay.ok) {
-			try {
-				bitmapOverlay = await createImageBitmap(await resOverlay.blob());
-			} catch (err) { }
+			try { bitmapOverlay = await createImageBitmap(await resOverlay.blob()); } catch (err) { }
 		}
 
-		// success
+		let bitmapNewChunks = null;
+		if (resNewChunks.ok) {
+			try { bitmapNewChunks = await createImageBitmap(await resNewChunks.blob()); } catch (err) { }
+		}
+
 		tileCache[key] = {
 			imgBase: bitmapBase,
 			imgOverlay: bitmapOverlay,
+			imgNewChunks: bitmapNewChunks,
 			loaded: true,
 			loading: false,
 			timestamp: Date.now()
 		};
 
 	} catch (e) {
-		if (e.name === 'AbortError') {
-			return;
-		}
-		// failed if fetch fails
-		tileCache[key] = {
-			loaded: false,
-			loading: false,
-			failed: true,
-			timestamp: Date.now()
-		};
+		if (e.name === 'AbortError') return;
+		tileCache[key] = { loaded: false, loading: false, failed: true, timestamp: Date.now() };
 	} finally {
 		inFlightRequests.delete(key);
 	}
@@ -319,7 +374,7 @@ function drawTile(tx, ty, lod, x, y, size, loadIfUncached = true, loadingForLowQ
 		tileCache[key] = tile;
 	}
 
-	if (layer === 'base' && isAllowedToLoad) {
+	if (layer === 'base' || layer == 'overlay' && isAllowedToLoad) {
 		const shouldLoad = !tile.loading && !tile.loaded && !tile.failed && (Date.now() - tile.firstSeen > currentDwell);
 		if (shouldLoad) {
 			activeTileKeys.add(key);
@@ -384,6 +439,22 @@ function drawTile(tx, ty, lod, x, y, size, loadIfUncached = true, loadingForLowQ
 	}
 }
 
+function requestTile(tx, ty, lod, currentDwell) {
+	const key = tileKey(tx, ty, lod, currentDimension);
+	let tile = tileCache[key];
+
+	if (!tile) {
+		tile = { loading: false, loaded: false, failed: false, firstSeen: Date.now() };
+		tileCache[key] = tile;
+	}
+
+	const shouldLoad = !tile.loading && !tile.loaded && !tile.failed && (Date.now() - tile.firstSeen > currentDwell);
+	if (shouldLoad) {
+		activeTileKeys.add(key);
+		loadTile(lod, tx, ty);
+	}
+}
+
 function abortTile(key) {
 	const tile = tileCache[key];
 	if (tile && tile.loading && tile.controller) {
@@ -404,13 +475,80 @@ function pruneCache() {
 	}
 }
 
+function renderLayer(tx, ty, lod, x, y, size, type) {
+	const key = tileKey(tx, ty, lod, currentDimension);
+	const tile = tileCache[key];
+
+	if (tile && tile.loaded) {
+		activeTileKeys.add(key);
+		const imgMap = {
+			'base': tile.imgBase,
+			'overlay': tile.imgOverlay,
+			'newchunks': tile.imgNewChunks
+		};
+		const img = imgMap[type];
+
+		if (img) {
+			image(img, x, y, size, size);
+			return;
+		}
+	}
+
+	let parentLod = lod + 1;
+	while (parentLod <= 10) {
+		const lodGap = parentLod - lod;
+		const scaleDiff = 1 << lodGap;
+		const pTx = Math.floor(tx / scaleDiff);
+		const pTy = Math.floor(ty / scaleDiff);
+		const pKey = tileKey(pTx, pTy, parentLod, currentDimension);
+		const pTile = tileCache[pKey];
+
+		if (pTile && pTile.loaded) {
+			activeTileKeys.add(pKey);
+			const imgMap = {
+				'base': pTile.imgBase,
+				'overlay': pTile.imgOverlay,
+				'newchunks': pTile.imgNewChunks
+			};
+			const img = imgMap[type];
+
+			if (img) {
+				const offsetX = tx - (pTx * scaleDiff);
+				const offsetY = ty - (pTy * scaleDiff);
+				const sSize = 512 / scaleDiff;
+				image(img, x, y, size, size, Math.floor(offsetX * sSize), Math.floor(offsetY * sSize), Math.ceil(sSize), Math.ceil(sSize));
+				return;
+			}
+		}
+		parentLod++;
+	}
+
+	if (type === 'base' && lod > 0) {
+		const cSize = size / 2;
+		const ctx = tx * 2;
+		const cty = ty * 2;
+		renderLayer(ctx, cty, lod - 1, x, y, cSize, type);
+		renderLayer(ctx + 1, cty, lod - 1, x + cSize, y, cSize, type);
+		renderLayer(ctx, cty + 1, lod - 1, x, y + cSize, cSize, type);
+		renderLayer(ctx + 1, cty + 1, lod - 1, x + cSize, y + cSize, cSize, type);
+	}
+}
+
 function createIcons() {
 	const icons = document.querySelectorAll('icon');
+
 	icons.forEach(icon => {
-		const text = icon.textContent;
+		const text = icon.textContent.trim();
 		const img = document.createElement('img');
 		img.src = '/icon/' + text + '.png';
-		img.className = 'icon';
+		img.classList.add('icon');
+
+		for (const attr of icon.attributes) {
+			img.setAttribute(attr.name, attr.value);
+		}
+
+		if (icon.onclick) img.onclick = icon.onclick;
+
 		icon.replaceWith(img);
 	});
 }

@@ -205,8 +205,26 @@
 .layers {
   bottom: 10px;
   left: 10px;
+  height: 27px;
+  flex-direction: column;
+  padding: 10px 15px;
+  align-items: baseline;
+  gap: 6px;
+  overflow: hidden;
 }
 
 .layers:hover {
-  height: 100px;
+  height: unset;
+}
+
+.layers .title {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.layers .item {
+  display: flex;
+  gap: 10px;
+  align-items: center;
 }
