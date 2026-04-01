@@ -309,7 +309,7 @@ function draw() {
 
 	if (layers["New Chunks"].visible) {
 		push();
-		opacity(layers["New Chunks"].settings.value);
+		opacity(layers["New Chunks"].settings.Opacity.value);
 		tilesToDraw.forEach((tile, index) => {
 			const drawX = Math.floor(tile.tx * tileSize);
 			const drawY = Math.floor(tile.ty * tileSize);
