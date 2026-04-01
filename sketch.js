@@ -92,34 +92,71 @@ function setup() {
 			return;
 		}
 
+		searchPanel.innerHTML = '';
+
+		let subheading = document.createElement('div');
+		subheading.className = 'subheading';
+		subheading.innerText = 'Exact Coordinates';
+		searchPanel.appendChild(subheading);
+
 		currentSuggestions = parsed.dim
 			? dimensionOptions.filter(d => d.id === parsed.dim)
 			: dimensionOptions;
 
-		if (selectedSuggestionIndex >= currentSuggestions.length) selectedSuggestionIndex = 0;
-
-		searchPanel.innerHTML = '<div class="subheading">Search Suggestions</div>';
-
 		currentSuggestions.forEach((dim, index) => {
 			const item = document.createElement("div");
 			item.className = `item ${index === selectedSuggestionIndex ? 'selected' : ''}`;
-
 			item.innerHTML = `
-				<img src="/icon/${dim.icon}.png" class="icon">
-				<div class="details">
-					<div class="name">${dim.name}</div>
-					<div class="tag">${dim.id}: ${parsed.x}, ${parsed.z}</div>
-				</div>
-			`;
-
+            <img src="/icon/${dim.icon}.png" class="icon">
+            <div class="details">
+                <div class="name">${dim.name}</div>
+                <div class="tag">${dim.id}: ${parsed.x}, ${parsed.z}</div>
+            </div>
+        `;
 			item.addEventListener('mousedown', (e) => {
 				e.preventDefault();
 				handleCoordinateSearch(`${dim.id}: ${parsed.x}, ${parsed.z}`);
 				searchPanel.classList.remove('open');
 			});
-
 			searchPanel.appendChild(item);
 		});
+
+		const converted = [];
+		const { x, z, dim } = parsed;
+
+		if (dim === 'nether') {
+			converted.push({ id: 'overworld', name: 'Overworld', icon: 'world', x: x * 8, z: z * 8 });
+		} else if (dim === 'overworld') {
+			converted.push({ id: 'nether', name: 'Nether', icon: 'obsidian', x: Math.floor(x / 8), z: Math.floor(z / 8) });
+		} else if (!dim) {
+			converted.push({ id: 'overworld', name: 'Overworld', icon: 'world', x: x*8, z: z*8 });
+			converted.push({ id: 'nether', name: 'Nether', icon: 'obsidian', x: Math.floor(x / 8), z: Math.floor(z / 8) });
+		}
+
+		if (converted.length > 0) {
+			let subConverted = document.createElement('div');
+			subConverted.className = 'subheading';
+			subConverted.innerText = 'Converted';
+			searchPanel.appendChild(subConverted);
+
+			converted.forEach((itemData) => {
+				const item = document.createElement("div");
+				item.className = 'item';
+				item.innerHTML = `
+                <img src="/icon/${itemData.icon}.png" class="icon">
+                <div class="details">
+                    <div class="name">${itemData.name}</div>
+                    <div class="tag">${itemData.id}: ${itemData.x}, ${itemData.z}</div>
+                </div>
+            `;
+				item.addEventListener('mousedown', (e) => {
+					e.preventDefault();
+					handleCoordinateSearch(`${itemData.id}: ${itemData.x}, ${itemData.z}`);
+					searchPanel.classList.remove('open');
+				});
+				searchPanel.appendChild(item);
+			});
+		}
 
 		searchPanel.classList.add('open');
 	};
@@ -451,8 +488,10 @@ function draw() {
 
 	if (currentDimension == 2) {
 		document.getElementById('netherCoordinates').style.display = 'none';
+		changeIcon(document.getElementById('overworldCoordinates').firstElementChild, 'enderchest');
 	} else {
 		document.getElementById('netherCoordinates').style.display = 'flex';
+		changeIcon(document.getElementById('overworldCoordinates').firstElementChild, 'world');
 	}
 
 	// reset mouse scroll
@@ -751,8 +790,6 @@ function handleCoordinateSearch(val) {
 		if (!isNaN(x) && !isNaN(z)) {
 			if (isNether) {
 				currentDimension = 1;
-				x *= 8;
-				z *= 8;
 			} else if (isOverworld) {
 				currentDimension = 0;
 			} else if (isEnd) {
