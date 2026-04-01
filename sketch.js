@@ -40,7 +40,7 @@ let layers = {
 		visible: false,
 		type: 'newchunks',
 		settings: {
-			Opacity: { icon: "opacity", type: "slider", value: 1 }
+			Opacity: { icon: "opacity", type: "slider", value: 0.5 }
 		}
 	}
 }
