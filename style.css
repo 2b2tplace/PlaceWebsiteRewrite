@@ -113,6 +113,11 @@
   font-size: 17px;
 }
 
+ui {
+  width: 100vw;
+  height: 100vh;
+}
+
 .icon {
   width: 20px;
   height: 20px;
@@ -346,4 +351,23 @@ ui:has(.layers:not(.open)) .layersettings {
   position: absolute;
   right: 15px;
   cursor: pointer;
+}
+
+.bottomMiddle {
+  z-index: 100;
+  position: absolute;
+  bottom: 10px;
+  left: calc(50vw - (430px / 2));
+  display: flex;
+  gap: 10px;
+  width: 430px;
+}
+
+.bottomMiddle * {
+  cursor: pointer;
+  transition: background-color 5ms linear;
+}
+
+.bottomMiddle *:hover {
+  background-color: rgba(8, 8, 8, 0.7);
 }

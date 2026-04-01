@@ -2,7 +2,7 @@ let originalMouseX, originalMouseY, originalCameraX, originalCameraY;
 let lastCamX = 0, lastCamY = 0;
 let smoothCamVel = 0;
 let lod;
-let intendedCamZoom = 1;
+let intendedCamZoom = 0.004;
 let tileCache = {};
 let cameraVel = 0;
 let isTrackpad = false;
@@ -63,6 +63,7 @@ let layersettings;
 function setup() {
 	createCanvas(windowWidth, windowHeight, P2D);
 	camera.on();
+	camera.zoom = intendedCamZoom;
 	camera.x = 0;
 	camera.y = 0;
 	frameRate(120);
@@ -258,6 +259,31 @@ function setup() {
 
 		layersButton.appendChild(item);
 	}
+
+	const overworldToggle = document.getElementById('overworldToggle');
+	overworldToggle.addEventListener("click", () => {
+		if (currentDimension == 1) {
+			camera.x *= 8;
+			camera.y *= 8;
+		}
+		currentDimension = 0;
+	})
+	const netherToggle = document.getElementById('netherToggle');
+	netherToggle.addEventListener("click", () => {
+		if (currentDimension != 1) {
+			camera.x /= 8;
+			camera.y /= 8;
+		}
+		currentDimension = 1;
+	})
+	const endToggle = document.getElementById('endToggle');
+	endToggle.addEventListener("click", () => {
+		if (currentDimension == 1) {
+			camera.x *= 8;
+			camera.y *= 8;
+		}
+		currentDimension = 2;
+	})
 
 	createIcons();
 }
@@ -760,12 +786,6 @@ function createIcons() {
 		img.className = 'icon';
 		icon.replaceWith(img);
 	});
-}
-
-function keyPressed() {
-	if (key === '1') currentDimension = 0;
-	else if (key === '2') currentDimension = 1;
-	else if (key === '3') currentDimension = 2;
 }
 
 window.addEventListener('keydown', (e) => {
