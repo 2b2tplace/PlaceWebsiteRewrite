@@ -45,9 +45,18 @@ let layers = {
 	}
 }
 
+let searchPanel;
+let selectedSuggestionIndex = 0;
+let currentSuggestions = [];
+const dimensionOptions = [
+	{ id: 'overworld', name: 'Overworld Coordinates', icon: 'world' },
+	{ id: 'nether', name: 'Nether Coordinates', icon: 'obsidian' },
+	{ id: 'end', name: 'End Coordinates', icon: 'enderchest' }
+];
+
 // elements
 let searchInput;
-let coordinateText;
+let coordinateText, coordinateTextNether;
 let layersButton;
 let layersettings;
 
@@ -60,17 +69,104 @@ function setup() {
 
 	// element setup
 	searchInput = document.getElementById('search');
-	searchInput.addEventListener('keydown', (e) => {
-		if (e.key === 'Enter') {
-			handleCoordinateSearch(searchInput.value);
-			searchInput.blur();
+	searchPanel = document.getElementById('searchPanel');
+
+	const getParsedInput = (val) => {
+		const lowerVal = val.toLowerCase();
+		const detectedDim = dimensionOptions.find(d => lowerVal.includes(d.id))?.id || null;
+
+		const numbers = val.match(/-?\d+(\.\d+)?/g);
+		if (!numbers || numbers.length < 2) return null;
+
+		return {
+			x: parseFloat(numbers[0]),
+			z: parseFloat(numbers[numbers.length >= 3 ? 2 : 1]),
+			dim: detectedDim
+		};
+	};
+
+	const renderSuggestions = () => {
+		const parsed = getParsedInput(searchInput.value);
+		if (!parsed) {
+			searchPanel.classList.remove('open');
+			return;
 		}
-		if (e.key === 'Escape') {
+
+		currentSuggestions = parsed.dim
+			? dimensionOptions.filter(d => d.id === parsed.dim)
+			: dimensionOptions;
+
+		if (selectedSuggestionIndex >= currentSuggestions.length) selectedSuggestionIndex = 0;
+
+		searchPanel.innerHTML = '<div class="subheading">Search Suggestions</div>';
+
+		currentSuggestions.forEach((dim, index) => {
+			const item = document.createElement("div");
+			item.className = `item ${index === selectedSuggestionIndex ? 'selected' : ''}`;
+
+			item.innerHTML = `
+				<img src="/icon/${dim.icon}.png" class="icon">
+				<div class="details">
+					<div class="name">${dim.name}</div>
+					<div class="tag">${dim.id}: ${parsed.x}, ${parsed.z}</div>
+				</div>
+			`;
+
+			item.addEventListener('mousedown', (e) => {
+				e.preventDefault();
+				handleCoordinateSearch(`${dim.id}: ${parsed.x}, ${parsed.z}`);
+				searchPanel.classList.remove('open');
+			});
+
+			searchPanel.appendChild(item);
+		});
+
+		searchPanel.classList.add('open');
+	};
+
+	searchInput.addEventListener('input', () => {
+		selectedSuggestionIndex = 0;
+		renderSuggestions();
+	});
+
+	searchInput.addEventListener('keydown', (e) => {
+		const isOpen = searchPanel.classList.contains('open');
+
+		if (e.key === 'ArrowDown') {
+			e.preventDefault();
+			if (isOpen) {
+				selectedSuggestionIndex = (selectedSuggestionIndex + 1) % currentSuggestions.length;
+				renderSuggestions();
+			}
+		} else if (e.key === 'ArrowUp') {
+			e.preventDefault();
+			if (isOpen) {
+				selectedSuggestionIndex = (selectedSuggestionIndex - 1 + currentSuggestions.length) % currentSuggestions.length;
+				renderSuggestions();
+			}
+		} else if (e.key === 'Enter') {
+			e.preventDefault();
+			const parsed = getParsedInput(searchInput.value);
+			if (isOpen && parsed && currentSuggestions.length > 0) {
+				const selectedDim = currentSuggestions[selectedSuggestionIndex].id;
+				handleCoordinateSearch(`${selectedDim}: ${parsed.x}, ${parsed.z}`);
+			} else {
+				handleCoordinateSearch(searchInput.value);
+			}
+			searchInput.blur();
+		} else if (e.key === 'Escape') {
 			searchInput.blur();
 		}
 	});
 
+	searchInput.addEventListener('focus', renderSuggestions);
+
+	searchInput.addEventListener('blur', () => {
+		searchPanel.classList.remove('open');
+	});
+
 	coordinateText = document.getElementById('coordinateText');
+	coordinateTextNether = document.getElementById('coordinateTextNether');
 
 	layersButton = document.getElementById('layers');
 	let layertitle = document.getElementById('layerstitle');
@@ -340,7 +436,12 @@ function draw() {
 		camera.y = originalCameraY + ((originalMouseY - mouseY) / camera.zoom);
 	}
 
-	coordinateText.innerText = `${Math.round(mouse.x)} ${Math.round(mouse.y)}`;
+	// display coordinates based on dimension
+	let displayX = Math.round(mouse.x);
+	let displayY = Math.round(mouse.y);
+
+	coordinateText.innerText = `${displayX} ${displayY}`;
+	coordinateTextNether.innerText = `${Math.round(mouse.x / 8)} ${Math.round(mouse.y / 8)}`;
 
 	// reset mouse scroll
 	mouseScrollX = 0;
@@ -625,14 +726,29 @@ window.addEventListener('keydown', (e) => {
 });
 
 function handleCoordinateSearch(val) {
-	const coords = val.split(/[ ,]+/);
-	if (coords.length >= 2) {
-		const x = parseFloat(coords[0]);
-		const y = parseFloat(coords[1]);
+	const isEnd = val.toLowerCase().includes('end:');
+	const isNether = val.toLowerCase().includes('nether:');
+	const isOverworld = val.toLowerCase().includes('overworld:');
 
-		if (!isNaN(x) && !isNaN(y)) {
+	const numbers = val.match(/-?\d+(\.\d+)?/g);
+
+	if (numbers && numbers.length >= 2) {
+		let x = parseFloat(numbers[0]);
+		let z = parseFloat(numbers[numbers.length >= 3 ? 2 : 1]);
+
+		if (!isNaN(x) && !isNaN(z)) {
+			if (isNether) {
+				currentDimension = 1;
+				x *= 8;
+				z *= 8;
+			} else if (isOverworld) {
+				currentDimension = 0;
+			} else if (isEnd) {
+				currentDimension = 2
+			}
+
 			camera.x = x;
-			camera.y = y;
+			camera.y = z;
 		}
 	}
 }
