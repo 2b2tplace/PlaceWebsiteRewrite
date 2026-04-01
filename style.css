@@ -119,6 +119,29 @@
   object-fit: contain;
 }
 
+.slider-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  margin-left: auto;
+}
+
+.slider-thumb {
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  background: url(/icon/sliderthumb.png);
+  pointer-events: none;
+  transform: translateX(-50%);
+}
+
+.slider {
+  display: block;
+  height: 20px;
+  width: 160px;
+}
+
 .ui {
   z-index: 100;
   position: absolute;
@@ -202,29 +225,108 @@
   height: 24px;
 }
 
-.layers {
+.bottomLeft {
+  position: absolute;
   bottom: 10px;
   left: 10px;
-  height: 27px;
+  display: flex;
   flex-direction: column;
-  padding: 10px 15px;
+  gap: 10px;
+}
+
+.layers {
+  width: 125px;
+  height: 50px;
+  flex-direction: column;
   align-items: baseline;
   gap: 6px;
   overflow: hidden;
+  position: unset;
+  padding: 0px;
 }
 
-.layers:hover {
+.layers.open {
   height: unset;
+  width: 300px;
+  padding: 10px 15px;
+}
+
+.layers .label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+}
+
+.layers:not(.open) .title {
+  padding: 10px 15px;
 }
 
 .layers .title {
   display: flex;
   gap: 10px;
   align-items: center;
+  cursor: pointer;
+}
+
+.layers .label .close {
+  display: flex;
+  align-items: center;
+  margin-left: auto;
+  cursor: pointer;
+}
+
+.layers:not(.open) .label .close {
+  display: none;
 }
 
 .layers .item {
   display: flex;
   gap: 10px;
   align-items: center;
+}
+
+.layers .item .icon.right {
+  position: absolute;
+  right: 15px;
+  cursor: pointer;
+}
+
+.layersettings {
+  position: unset;
+  flex-direction: column;
+  align-items: baseline;
+  height: unset;
+  padding: 10px 15px;
+  gap: 6px;
+  opacity: 0;
+  translate: -20px 0px;
+  transition: opacity 0.25s cubic-bezier(.18, .69, .18, 1), translate 0.25s cubic-bezier(.18, .69, .18, 1);
+}
+
+.layersettings.open {
+  opacity: 1;
+  translate: 0px 0px;
+}
+
+ui:has(.layers:not(.open)) .layersettings {
+  display: none;
+}
+
+.layersettings .label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.layersettings .setting {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.layersettings .setting .icon.right {
+  position: absolute;
+  right: 15px;
+  cursor: pointer;
 }

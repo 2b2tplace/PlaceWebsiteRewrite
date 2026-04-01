@@ -6,6 +6,7 @@ let intendedCamZoom = 1;
 let tileCache = {};
 let cameraVel = 0;
 let isTrackpad = false;
+let timeOfLastPan = Date.now();
 let mouseScrollX = 0, mouseScrollY = 0;
 let uiElements = {}
 let tilesToDraw = [];
@@ -14,25 +15,33 @@ let activeTileKeys = new Set();
 let currentDimension = 0;
 let parallax = 0.5;
 let overlayOpacity = 1;
-
+let changeListeners = [];
+let currentLayerSettings;
 let layers = {
 	"World": {
 		icon: "world",
 		visible: true,
-		opacity: 1,
-		type: 'base'
+		type: 'base',
+		settings: {
+			Opacity: { icon: "opacity", type: "slider", value: 1 }
+		}
 	},
 	"Obsidian": {
 		icon: "obsidian",
 		visible: true,
-		opacity: 1,
-		type: 'overlay'
+		type: 'overlay',
+		settings: {
+			Opacity: { icon: "opacity", type: "slider", value: 1 },
+			Parallax: { icon: "parallax", type: "toggle", value: true }
+		}
 	},
-	"NewChunks": {
+	"New Chunks": {
 		icon: "chunkhighlights",
 		visible: false,
-		opacity: 0.5,
-		type: 'newchunks'
+		type: 'newchunks',
+		settings: {
+			Opacity: { icon: "opacity", type: "slider", value: 1 }
+		}
 	}
 }
 
@@ -40,6 +49,7 @@ let layers = {
 let searchInput;
 let coordinateText;
 let layersButton;
+let layersettings;
 
 function setup() {
 	createCanvas(windowWidth, windowHeight, P2D);
@@ -63,30 +73,125 @@ function setup() {
 	coordinateText = document.getElementById('coordinateText');
 
 	layersButton = document.getElementById('layers');
-	for (const [name, layer] of Object.entries(layers)) {
+	let layertitle = document.getElementById('layerstitle');
+	let layerclose = document.getElementById('layerclose');
 
+	layersettings = document.getElementById('layersettings');
+
+	layerclose.addEventListener("click", (e) => {
+		if (layersButton.classList.contains("open")) {
+			layersButton.classList.remove("open")
+		}
+	});
+	layertitle.addEventListener("click", (e) => {
+		if (!layersButton.classList.contains("open")) {
+			layersButton.classList.add("open")
+		}
+	});
+	for (const [name, layer] of Object.entries(layers)) {
 		const item = document.createElement("div");
 		item.className = "item";
 
-		const visibilityIcon = document.createElement("img");
-		visibilityIcon.className = "icon";
-		visibilityIcon.src = `/icon/${layer.visible ? "checked" : "unchecked"}.png`;
-
+		const visibilityIcon = createIcon(layer.visible ? "checked" : "unchecked");
+		visibilityIcon.style.cursor = "pointer";
 		visibilityIcon.addEventListener("click", (e) => {
 			layer.visible = !layer.visible;
-			e.target.src = `/icon/${layer.visible ? "checked" : "unchecked"}.png`;
+		});
+		updateOnChange(() => layer.visible, (val) => {
+			changeIcon(visibilityIcon, val ? "checked" : "unchecked");
 		});
 
-		const layerIcon = document.createElement("img");
-		layerIcon.className = "icon";
-		layerIcon.src = `/icon/${layer.icon}.png`;
+		const layerIcon = createIcon(layer.icon);
 
-		item.append(visibilityIcon, layerIcon, name);
+		const settingsIcon = createIcon('settings');
+		settingsIcon.classList.add('right')
+		if (layer.settings) {
+			settingsIcon.addEventListener("click", (e) => {
+				if (!layersettings.classList.contains('open')) {
+					layersettings.classList.add('open');
+					configureLayerSettings(name, layer);
+				} else if (currentLayerSettings != name) {
+					configureLayerSettings(name, layer);
+				} else {
+					layersettings.classList.remove('open');
+				}
+			});
+		} else {
+			settingsIcon.style.opacity = 0.5;
+			settingsIcon.style.cursor = "default";
+		}
+
+		item.append(visibilityIcon, layerIcon, name, settingsIcon);
 
 		layersButton.appendChild(item);
 	}
 
 	createIcons();
+}
+
+// for now ive just put the function under setup while i make it
+function configureLayerSettings(layerName, layer) {
+	currentLayerSettings = layerName;
+	layersettings.innerHTML = '';
+
+	const layersettingslabel = document.createElement("div");
+	layersettingslabel.className = "label";
+	const layersettingicon = createIcon('settings');
+	layersettingslabel.append(layersettingicon, `${layerName} Settings`);
+	layersettings.append(layersettingslabel);
+
+	let setting = document.createElement("div");
+	setting.className = "setting";
+
+	let reset = createIcon('reset');
+	reset.style.opacity = 0.5;
+	let icon = createIcon('eye');
+	let name = 'Visibility';
+	let toggle = createIcon(layer.visible ? 'on' : 'off');
+	toggle.classList.add('right');
+	toggle.addEventListener("click", (e) => {
+		layer.visible = !layer.visible
+		changeIcon(e.target, layer.visible ? 'on' : 'off')
+	});
+	updateOnChange(() => layer.visible, (val) => {
+		changeIcon(toggle, val ? 'on' : 'off');
+	});
+
+	setting.append(reset, icon, name, toggle);
+	layersettings.appendChild(setting);
+
+	for (const item in layer.settings) {
+		setting = document.createElement("div");
+		setting.className = "setting";
+
+		reset = createIcon('reset');
+		reset.style.opacity = 0.5;
+		icon = createIcon(layer.settings[item].icon);
+		name = item;
+		setting.append(reset, icon, name);
+
+		if (layer.settings[item].type == 'toggle') {
+			let settingtoggle = createIcon('on');
+			settingtoggle.classList.add('right');
+			settingtoggle.addEventListener("click", (e) => {
+				layer.settings[item].value = !layer.settings[item].value
+				changeIcon(e.target, layer.settings[item].value ? 'on' : 'off')
+			});
+			updateOnChange(() => layer.settings[item].value, (val) => {
+				changeIcon(settingtoggle, val ? 'on' : 'off');
+			});
+			setting.appendChild(settingtoggle);
+		} else if (layer.settings[item].type == 'slider') {
+			let settingslider = document.createElement("img");
+			settingslider.src = '/icon/slider.png';
+			settingslider.className = 'slider'
+			setting.appendChild(settingslider);
+
+			setupSlider(settingslider, layer.settings[item], 0, 1);
+		}
+
+		layersettings.appendChild(setting);
+	}
 }
 
 function draw() {
@@ -112,6 +217,8 @@ function draw() {
 	const borderLod = (lod + 2) > 10 ? 10 : lod + 2;
 
 	if (borderLod !== lod && layers["World"].visible) {
+		push();
+		opacity(layers["World"].settings.Opacity.value ** 2)
 		const borderTileSize = 512 * 2 ** borderLod;
 		const borderPadding = 1;
 
@@ -127,6 +234,7 @@ function draw() {
 				drawTile(i, j, borderLod, drawX, drawY, borderTileSize, true, true);
 			}
 		}
+		pop();
 	}
 
 	const topLeftTileX = Math.floor((camera.x - halfWidth / camera.zoom) / tileSize);
@@ -157,18 +265,21 @@ function draw() {
 
 	// draw base
 	if (layers["World"].visible) {
+		push();
+		opacity(layers["World"].settings.Opacity.value)
 		tilesToDraw.forEach((tile, index) => {
 			const drawX = Math.floor(tile.tx * tileSize);
 			const drawY = Math.floor(tile.ty * tileSize);
 			drawTile(tile.tx, tile.ty, lod, drawX, drawY, Math.floor(tileSize), !isFastMoving, false, dynamicDwell, 'base');
 		});
+		pop();
 	}
 
 	parallax = 0.5 * camera.zoom ** 2;
 	// overlay
 	if (parallax < 5) {
-		overlayOpacity = lerp(overlayOpacity, layers["Obsidian"].opacity, 0.1);
-	} else {
+		overlayOpacity = lerp(overlayOpacity, layers["Obsidian"].settings.Opacity.value, 0.1);
+	} else if (layers["Obsidian"].settings.Parallax.value) {
 		overlayOpacity = lerp(overlayOpacity, 0, 0.1);
 	}
 
@@ -183,18 +294,22 @@ function draw() {
 			const dx = drawX - camera.x;
 			const dy = drawY - camera.y;
 
-			const parallaxX = drawX + (dx * parallax);
-			const parallaxY = drawY + (dy * parallax);
+			if (layers["Obsidian"].settings.Parallax.value) {
+				const parallaxX = drawX + (dx * parallax);
+				const parallaxY = drawY + (dy * parallax);
 
-			const parallaxSize = Math.ceil((tileSize * (1 + parallax)) + 2);
-			drawTile(tile.tx, tile.ty, lod, parallaxX, parallaxY, Math.ceil(parallaxSize + 2), !isFastMoving, false, dynamicDwell, 'overlay');
+				const parallaxSize = Math.ceil((tileSize * (1 + parallax)) + 2);
+				drawTile(tile.tx, tile.ty, lod, parallaxX, parallaxY, Math.ceil(parallaxSize + 2), !isFastMoving, false, dynamicDwell, 'overlay');
+			} else {
+				drawTile(tile.tx, tile.ty, lod, drawX, drawY, Math.floor(tileSize), !isFastMoving, false, dynamicDwell, 'overlay');
+			}
 		});
 		pop();
 	}
 
-	if (layers["NewChunks"].visible) {
+	if (layers["New Chunks"].visible) {
 		push();
-		opacity(layers["NewChunks"].opacity);
+		opacity(layers["New Chunks"].settings.value);
 		tilesToDraw.forEach((tile, index) => {
 			const drawX = Math.floor(tile.tx * tileSize);
 			const drawY = Math.floor(tile.ty * tileSize);
@@ -256,44 +371,49 @@ function update() {
 	const ROUND_VEL = 10000;
 
 	if (!isTrackpad) {
-		const scroll = Math.abs(mouseScrollY) < 50 ? mouseScrollY * 10 : mouseScrollY;
+		if (Date.now() - timeOfLastPan > 50) {
+			const scroll = Math.abs(mouseScrollY) < 50 ? mouseScrollY * 10 : mouseScrollY;
 
-		intendedCamZoom *= Math.exp(scroll / -250);
+			intendedCamZoom *= Math.exp(scroll / -250);
 
-		// clamp in log space
-		const logZoom = Math.log(intendedCamZoom);
-		intendedCamZoom = Math.exp(
-			Math.min(LOG_ZOOM_MAX, Math.max(LOG_ZOOM_MIN, logZoom))
-		);
+			// clamp in log space
+			const logZoom = Math.log(intendedCamZoom);
+			intendedCamZoom = Math.exp(
+				Math.min(LOG_ZOOM_MAX, Math.max(LOG_ZOOM_MIN, logZoom))
+			);
 
-		// smooth zoom
-		const previousZoom = camera.zoom;
+			// smooth zoom
+			const previousZoom = camera.zoom;
 
-		const newZoom =
-			Math.round(
-				(previousZoom +
-					(intendedCamZoom - previousZoom) / ZOOM_SMOOTHING) *
-				ROUND_ZOOM
-			) / ROUND_ZOOM;
+			const newZoom =
+				Math.round(
+					(previousZoom +
+						(intendedCamZoom - previousZoom) / ZOOM_SMOOTHING) *
+					ROUND_ZOOM
+				) / ROUND_ZOOM;
 
-		camera.zoom = newZoom;
+			camera.zoom = newZoom;
 
-		// zoom towards mouse
-		const zoomRatio = previousZoom / newZoom;
+			// zoom towards mouse
+			const zoomRatio = previousZoom / newZoom;
 
-		camera.x += (mouse.x - camera.x) * (1 - zoomRatio);
-		camera.y += (mouse.y - camera.y) * (1 - zoomRatio);
+			camera.x += (mouse.x - camera.x) * (1 - zoomRatio);
+			camera.y += (mouse.y - camera.y) * (1 - zoomRatio);
 
-		// velocity
-		cameraVel =
-			Math.round((previousZoom - newZoom) * ROUND_VEL) / ROUND_VEL;
-
+			// velocity
+			cameraVel =
+				Math.round((previousZoom - newZoom) * ROUND_VEL) / ROUND_VEL;
+		}
 	} else {
 		// trackpad
+		let timeOfLastPan = Date.now();
 		camera.x += mouseScrollX / camera.zoom;
 		camera.y += mouseScrollY / camera.zoom;
 		cameraVel = 0;
 	}
+
+	// poll registered listeners
+	checkChanges();
 }
 
 function windowResized() {
@@ -515,4 +635,88 @@ function handleCoordinateSearch(val) {
 			camera.y = y;
 		}
 	}
+}
+
+function createIcon(icon) {
+	let tempIcon = document.createElement("img");
+	tempIcon.className = "icon";
+	tempIcon.src = `/icon/${icon}.png`;
+	return tempIcon;
+}
+
+function changeIcon(target, icon) {
+	target.src = `/icon/${icon}.png`;
+}
+
+function updateOnChange(getter, callback) {
+	changeListeners.push({
+		getter: getter,
+		callback: callback,
+		lastValue: getter()
+	});
+}
+
+function checkChanges() {
+	for (let i = 0; i < changeListeners.length; i++) {
+		const listener = changeListeners[i];
+		const currentValue = listener.getter();
+
+		if (currentValue !== listener.lastValue) {
+			listener.callback(currentValue);
+			listener.lastValue = currentValue;
+		}
+	}
+}
+
+
+function setupSlider(imgElement, settingObj, min = 0, max = 1) {
+	const minVisual = 3.789062;
+	const maxVisual = 95.039063;
+
+	const wrapper = document.createElement('div');
+	wrapper.className = 'slider-wrapper';
+
+	const thumb = createIcon('sliderthumb');
+	thumb.classList.add('slider-thumb');
+
+	imgElement.parentNode.insertBefore(wrapper, imgElement);
+	wrapper.appendChild(imgElement);
+	wrapper.appendChild(thumb);
+
+	const mapValueToVisual = (val) => {
+		const normalized = (val - min) / (max - min);
+		return minVisual + (normalized * (maxVisual - minVisual));
+	};
+
+	function updatePosition(e) {
+		const rect = imgElement.getBoundingClientRect();
+		const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+
+		let percent = (clientX - rect.left) / rect.width;
+		percent = Math.max(0, Math.min(1, percent));
+
+		settingObj.value = min + (percent * (max - min));
+
+		const visualPercent = mapValueToVisual(settingObj.value);
+		thumb.style.left = visualPercent + '%';
+	}
+
+	thumb.style.left = mapValueToVisual(settingObj.value) + '%';
+
+	let isDragging = false;
+	const startDrag = (e) => { isDragging = true; updatePosition(e); e.preventDefault(); };
+	const doDrag = (e) => { if (isDragging) updatePosition(e); };
+	const stopDrag = () => { isDragging = false; };
+
+	wrapper.addEventListener('mousedown', startDrag);
+	window.addEventListener('mousemove', doDrag);
+	window.addEventListener('mouseup', stopDrag);
+
+	wrapper.addEventListener('touchstart', startDrag, { passive: false });
+	window.addEventListener('touchmove', doDrag, { passive: false });
+	window.addEventListener('touchend', stopDrag);
+
+	updateOnChange(() => settingObj.value, (val) => {
+		thumb.style.left = mapValueToVisual(val) + '%';
+	});
 }

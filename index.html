@@ -32,10 +32,23 @@
 			<icon>directions</icon>
 			<icon>more</icon>
 		</div>
-		<div class="layers ui" id="layers">
-			<div class="title">
-				<icon>layers</icon>
-				Layers
+		<div class="bottomLeft">
+			<div class="layersettings ui" id="layersettings">
+				<div class="label">
+					<icon>settings</icon>
+					<div id="layersettingslabel">Layer Settings</div>
+				</div>
+			</div>
+			<div class="layers ui" id="layers">
+				<div class="label">
+					<div class="title" id="layerstitle">
+						<icon>layers</icon>
+						Layers
+					</div>
+					<div class="close" id="layerclose">
+						<icon>close</icon>
+					</div>
+				</div>
 			</div>
 		</div>
 		<!-- <div class="searchPanel ui">
@@ -57,7 +70,7 @@
 		</div> -->
 		<div class="topRight">
 			<div class="coordinates ui noFloat">
-				<icon>pins</icon>
+				<icon>pin</icon>
 				<div id="coordinateText">0 0</div>
 			</div>
 		</div>
