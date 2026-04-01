@@ -437,11 +437,17 @@ function draw() {
 	}
 
 	// display coordinates based on dimension
-	let displayX = Math.round(mouse.x);
-	let displayY = Math.round(mouse.y);
-
-	coordinateText.innerText = `${displayX} ${displayY}`;
-	coordinateTextNether.innerText = `${Math.round(mouse.x / 8)} ${Math.round(mouse.y / 8)}`;
+	if (currentDimension == 0 || currentDimension == 2) {
+		let displayX = Math.round(mouse.x);
+		let displayY = Math.round(mouse.y);
+		coordinateText.innerText = `${displayX} ${displayY}`;
+		coordinateTextNether.innerText = `${Math.round(displayX / 8)} ${Math.round(displayY / 8)}`;
+	} else {
+		let displayX = Math.round(mouse.x);
+		let displayY = Math.round(mouse.y);
+		coordinateText.innerText = `${displayX * 8} ${displayY * 8}`;
+		coordinateTextNether.innerText = `${displayX} ${displayY}`;
+	}
 
 	// reset mouse scroll
 	mouseScrollX = 0;
