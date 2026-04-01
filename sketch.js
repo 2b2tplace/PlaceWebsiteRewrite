@@ -449,6 +449,12 @@ function draw() {
 		coordinateTextNether.innerText = `${displayX} ${displayY}`;
 	}
 
+	if (currentDimension == 2) {
+		document.getElementById('netherCoordinates').style.display = 'none';
+	} else {
+		document.getElementById('netherCoordinates').style.display = 'flex';
+	}
+
 	// reset mouse scroll
 	mouseScrollX = 0;
 	mouseScrollY = 0;
