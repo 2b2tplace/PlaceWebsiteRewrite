@@ -930,6 +930,7 @@ function updateMapURL() {
 	const lat = (camera.x).toFixed(0);
 	const lng = (camera.y).toFixed(0);
 	const camzoom = (camera.zoom).toFixed(6);
-	const url = `/@${lat},${lng},${camzoom},${currentDimension}`;
-	history.replaceState({ lat, lng, camzoom }, "", url)
+	const url = new URL(window.location.href);
+	url.pathname = `/@${lat},${lng},${camzoom},${currentDimension}`;
+	history.replaceState({ lat, lng, camzoom, currentDimension }, "", url.toString());
 }
