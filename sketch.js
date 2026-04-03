@@ -63,9 +63,21 @@ let layersettings;
 function setup() {
 	createCanvas(windowWidth, windowHeight, P2D);
 	camera.on();
-	camera.zoom = intendedCamZoom;
-	camera.x = 0;
-	camera.y = 0;
+	// load prev camera view
+	const path = window.location.pathname;
+	const match = path.match(/@([^/]+)/);
+	if (match) {
+		const [lat, lng, zoom, dim] = match[1].split(",").map(Number);
+		intendedCamZoom = zoom
+		camera.zoom = zoom;
+		camera.x = lat;
+		camera.y = lng;
+		currentDimension = dim;
+	} else {
+		camera.zoom = intendedCamZoom;
+		camera.x = 0;
+		camera.y = 0;
+	}
 	frameRate(120);
 
 	// element setup
@@ -130,7 +142,7 @@ function setup() {
 		} else if (dim === 'overworld') {
 			converted.push({ id: 'nether', name: 'Nether', icon: 'obsidian', x: Math.floor(x / 8), z: Math.floor(z / 8) });
 		} else if (!dim) {
-			converted.push({ id: 'overworld', name: 'Overworld', icon: 'world', x: x*8, z: z*8 });
+			converted.push({ id: 'overworld', name: 'Overworld', icon: 'world', x: x * 8, z: z * 8 });
 			converted.push({ id: 'nether', name: 'Nether', icon: 'obsidian', x: Math.floor(x / 8), z: Math.floor(z / 8) });
 		}
 
@@ -267,6 +279,7 @@ function setup() {
 			camera.y *= 8;
 		}
 		currentDimension = 0;
+		updateMapURL();
 	})
 	const netherToggle = document.getElementById('netherToggle');
 	netherToggle.addEventListener("click", () => {
@@ -275,6 +288,7 @@ function setup() {
 			camera.y /= 8;
 		}
 		currentDimension = 1;
+		updateMapURL();
 	})
 	const endToggle = document.getElementById('endToggle');
 	endToggle.addEventListener("click", () => {
@@ -283,6 +297,7 @@ function setup() {
 			camera.y *= 8;
 		}
 		currentDimension = 2;
+		updateMapURL();
 	})
 
 	createIcons();
@@ -498,6 +513,9 @@ function draw() {
 		camera.x = originalCameraX + ((originalMouseX - mouseX) / camera.zoom);
 		camera.y = originalCameraY + ((originalMouseY - mouseY) / camera.zoom);
 	}
+	if (mouse.released('left')) {
+		updateMapURL();
+	}
 
 	// display coordinates based on dimension
 	if (currentDimension == 0 || currentDimension == 2) {
@@ -537,6 +555,8 @@ function mouseWheel(event) {
 	// includes both X and Y for supported devices
 	mouseScrollX = event.deltaX;
 	mouseScrollY = event.deltaY;
+
+	updateMapURL();
 	// return required for safari browser to be supported
 	return false;
 }
@@ -584,7 +604,7 @@ function update() {
 		}
 	} else {
 		// trackpad
-		let timeOfLastPan = Date.now();
+		timeOfLastPan = Date.now();
 		camera.x += mouseScrollX / camera.zoom;
 		camera.y += mouseScrollY / camera.zoom;
 		cameraVel = 0;
@@ -904,4 +924,12 @@ function setupSlider(imgElement, settingObj, min = 0, max = 1) {
 	updateOnChange(() => settingObj.value, (val) => {
 		thumb.style.left = mapValueToVisual(val) + '%';
 	});
+}
+
+function updateMapURL() {
+	const lat = (camera.x).toFixed(0);
+	const lng = (camera.y).toFixed(0);
+	const camzoom = (camera.zoom).toFixed(6);
+	const url = `/@${lat},${lng},${camzoom},${currentDimension}`;
+	history.replaceState({ lat, lng, camzoom }, "", url)
 }
