@@ -321,8 +321,6 @@ function setup() {
 		updateMapURL();
 	})
 
-	createIcons();
-
 	const copyLinkTitle = document.getElementById('copyLinkTitle');
 	copyLinkTitle.innerHTML = 'Share'
 	const closeButton = createIcon('close');
@@ -388,6 +386,8 @@ function setup() {
 
 		copyLinkBody.appendChild(item);
 	});
+
+	createIcons();
 }
 
 // for now ive just put the function under setup while i make it
