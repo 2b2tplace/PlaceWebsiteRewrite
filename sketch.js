@@ -409,7 +409,7 @@ async function copyToClipboard() {
 		? baseURL + window.location.search
 		: baseURL;
 	try {
-		if (navigator.clipboard && window.isSecureContext && false) {
+		if (navigator.clipboard && window.isSecureContext) {
 			await navigator.clipboard.writeText(finalURL);
 		} else {
 			const textarea = document.createElement("textarea");
