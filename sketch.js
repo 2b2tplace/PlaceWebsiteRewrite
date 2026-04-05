@@ -60,6 +60,14 @@ let coordinateText, coordinateTextNether;
 let layersButton;
 let layersettings;
 
+let copyLinkSettings = {
+	"Include All": false,
+	"Layer Settings": false,
+	"Current Search": false,
+	"Your Markers": false,
+	"Keep Existing URL Parameters": false
+}
+
 function setup() {
 	createCanvas(windowWidth, windowHeight, P2D);
 	camera.on();
@@ -67,12 +75,24 @@ function setup() {
 	const path = window.location.pathname;
 	const match = path.match(/@([^/]+)/);
 	if (match) {
-		const [lat, lng, zoom, dim] = match[1].split(",").map(Number);
-		intendedCamZoom = zoom
-		camera.zoom = zoom;
-		camera.x = lat;
-		camera.y = lng;
-		currentDimension = dim;
+		const value = match[1];
+		if (value.includes(",")) {
+			const [lat, lng, zoom, dim] =
+				value.split(",").map(Number);
+
+			intendedCamZoom = zoom;
+			camera.zoom = zoom;
+			camera.x = lat;
+			camera.y = lng;
+			currentDimension = dim;
+		} else {
+			const details = decodeURL(value);
+			intendedCamZoom = details.camzoom
+			camera.zoom = details.camzoom;
+			camera.x = details.lat;
+			camera.y = details.lng;
+			currentDimension = details.currentDimension;
+		}
 	} else {
 		camera.zoom = intendedCamZoom;
 		camera.x = 0;
@@ -272,6 +292,7 @@ function setup() {
 		layersButton.appendChild(item);
 	}
 
+	// toggles in the middle
 	const overworldToggle = document.getElementById('overworldToggle');
 	overworldToggle.addEventListener("click", () => {
 		if (currentDimension == 1) {
@@ -301,6 +322,72 @@ function setup() {
 	})
 
 	createIcons();
+
+	const copyLinkTitle = document.getElementById('copyLinkTitle');
+	copyLinkTitle.innerHTML = 'Share'
+	const closeButton = createIcon('close');
+	closeButton.addEventListener('click', () => {
+		document.getElementById('copyLinkScreen').classList.remove('open');
+	})
+	copyLinkTitle.appendChild(closeButton);
+	const copyLinkBody = document.getElementById('copyLinkBody');
+	copyLinkBody.innerHTML = '<div class="subheading">Options</div>';
+
+	const items = {};
+
+	Object.keys(copyLinkSettings).forEach(settingName => {
+
+		let item = document.createElement('div');
+		item.className = 'item';
+
+		let icon = createIcon(
+			copyLinkSettings[settingName] ? 'checked' : 'unchecked'
+		);
+
+		item.appendChild(icon);
+		item.insertAdjacentText('beforeend', settingName);
+
+		items[settingName] = { item, icon };
+
+		item.addEventListener('click', () => {
+
+			if (item.classList.contains('disabled')) return;
+
+			copyLinkSettings[settingName] =
+				!copyLinkSettings[settingName];
+
+			const includeAll = copyLinkSettings["Include All"];
+
+			Object.entries(items).forEach(([name, refs]) => {
+				const { item, icon } = refs;
+				if (includeAll && name !== "Include All") {
+					changeIcon(icon, 'checked');
+					item.classList.add('disabled');
+				} else {
+					changeIcon(
+						icon,
+						copyLinkSettings[name] ? 'checked' : 'unchecked'
+					);
+					item.classList.remove('disabled');
+				}
+			});
+
+			if (copyLinkSettings["Keep Existing URL Parameters"]) {
+				console.log(window.location.search)
+				document.getElementById('copyLinkText').value = `${window.location.origin}/@${encodeURL()}${window.location.search}`;
+				document.getElementById('copyLinkButton').addEventListener('click', () => {
+					navigator.clipboard.writeText(`${window.location.origin}/@${encodeURL()}${window.location.search}`);
+				})
+			} else {
+				document.getElementById('copyLinkText').value = `${window.location.origin}/@${encodeURL()}`;
+				document.getElementById('copyLinkButton').addEventListener('click', () => {
+					navigator.clipboard.writeText(`${window.location.origin}/@${encodeURL()}`);
+				})
+			}
+		});
+
+		copyLinkBody.appendChild(item);
+	});
 }
 
 // for now ive just put the function under setup while i make it
@@ -504,6 +591,9 @@ function draw() {
 
 	// map panning logic
 	if (mouse.presses('left')) {
+		const context = document.getElementById('rightClickContext');
+		context.classList.remove('open');
+
 		originalMouseX = mouseX;
 		originalMouseY = mouseY;
 		originalCameraX = camera.x;
@@ -515,6 +605,34 @@ function draw() {
 	}
 	if (mouse.released('left')) {
 		updateMapURL();
+	}
+
+	// right click context menu
+	if (mouse.presses('right')) {
+		const context = document.getElementById('rightClickContext');
+		context.classList.add('open');
+		context.style.left = mouseX + 'px';
+		context.style.top = mouseY + 'px';
+
+		const copycoords = document.getElementById('copycoordinates');
+		const savedX = Math.round(mouse.x);
+		const savedZ = Math.round(mouse.y);
+		copycoords.addEventListener("click", () => {
+			navigator.clipboard.writeText(`${savedX}, ${savedZ}`);
+			context.classList.remove('open');
+		})
+
+		const copyLink = document.getElementById('copylink');
+		copyLink.addEventListener("click", () => {
+			document.getElementById('copyLinkText').value = `${window.location.origin}/@${encodeURL()}`;
+			document.getElementById('copyLinkButton').addEventListener('click', () => {
+				navigator.clipboard.writeText(`${window.location.origin}/@${encodeURL()}`);
+			})
+
+			const copyLinkScreen = document.getElementById('copyLinkScreen');
+			copyLinkScreen.classList.add('open');
+			context.classList.remove('open');
+		})
 	}
 
 	// display coordinates based on dimension
@@ -927,10 +1045,135 @@ function setupSlider(imgElement, settingObj, min = 0, max = 1) {
 }
 
 function updateMapURL() {
-	const lat = (camera.x).toFixed(0);
-	const lng = (camera.y).toFixed(0);
-	const camzoom = (camera.zoom).toFixed(6);
+	const lat = Math.round(camera.x);
+	const lng = Math.round(camera.y);
+	const camzoom = parseFloat(camera.zoom.toFixed(4));
+
 	const url = new URL(window.location.href);
 	url.pathname = `/@${lat},${lng},${camzoom},${currentDimension}`;
 	history.replaceState({ lat, lng, camzoom, currentDimension }, "", url.toString());
+}
+
+function encodeURL({ lat = Math.round(camera.x), lng = Math.round(camera.y), camzoom = parseFloat(camera.zoom.toFixed(4)) } = {}) {
+	lat = Math.round(camera.x);
+	lng = Math.round(camera.y);
+	camzoom = parseFloat(camera.zoom.toFixed(4));
+	const stream = new BitStream();
+
+	stream.writeVarint(zigzag(lat));
+	stream.writeVarint(zigzag(lng));
+	stream.writeVarint(zigzag(Math.round(camzoom * 10000)));
+	stream.writeBits(currentDimension, 2);
+
+	return base64UrlEncode(stream.getUint8Array());
+}
+
+function decodeURL(base64String) {
+	if (!base64String) return null;
+
+	const bytes = base64UrlDecode(base64String);
+	const stream = new BitStream(bytes);
+
+	const lat = unzigzag(stream.readVarint());
+	const lng = unzigzag(stream.readVarint());
+	const zoomRaw = unzigzag(stream.readVarint());
+	const currentDimension = stream.readBits(2);
+
+	return {
+		lat,
+		lng,
+		camzoom: zoomRaw / 10000,
+		currentDimension
+	};
+}
+
+class BitStream {
+	constructor(uint8Array = null) {
+		this.bytes = uint8Array ? Array.from(uint8Array) : [];
+		this.byteIdx = 0;
+		this.bitPos = 0;
+	}
+
+	writeBits(val, count) {
+		for (let i = 0; i < count; i++) {
+			if (this.bitPos === 0) this.bytes.push(0);
+
+			const bit = (val >> (count - i - 1)) & 1;
+			if (bit) {
+				this.bytes[this.bytes.length - 1] |= (1 << (7 - this.bitPos));
+			}
+
+			this.bitPos++;
+			if (this.bitPos === 8) this.bitPos = 0;
+		}
+	}
+
+	readBits(count) {
+		let val = 0;
+		for (let i = 0; i < count; i++) {
+			const bit = (this.bytes[this.byteIdx] >> (7 - this.bitPos)) & 1;
+			val = (val << 1) | bit;
+
+			this.bitPos++;
+			if (this.bitPos === 8) {
+				this.bitPos = 0;
+				this.byteIdx++;
+			}
+		}
+		return val;
+	}
+
+	writeVarint(num) {
+		let more = true;
+		while (more) {
+			let chunk = num & 0x7F;
+			num >>>= 7;
+			if (num > 0) chunk |= 0x80;
+			else more = false;
+			this.writeBits(chunk, 8);
+		}
+	}
+
+	readVarint() {
+		let result = 0, shift = 0;
+		while (true) {
+			const byte = this.readBits(8);
+			result |= (byte & 127) << shift;
+			if (!(byte & 128)) break;
+			shift += 7;
+		}
+		return result;
+	}
+
+	getUint8Array() {
+		return new Uint8Array(this.bytes);
+	}
+}
+
+function zigzag(n) {
+	return (n << 1) ^ (n >> 31);
+}
+
+function unzigzag(n) {
+	return (n >>> 1) ^ -(n & 1);
+}
+
+function base64UrlEncode(bytes) {
+	let binary = "";
+	for (const b of bytes) binary += String.fromCharCode(b);
+	return btoa(binary)
+		.replace(/\+/g, "-")
+		.replace(/\//g, "_")
+		.replace(/=+$/, "");
+}
+
+function base64UrlDecode(str) {
+	str = str.replace(/-/g, "+").replace(/_/g, "/");
+	while (str.length % 4) str += "=";
+	const binary = atob(str);
+	const bytes = new Uint8Array(binary.length);
+	for (let i = 0; i < binary.length; i++) {
+		bytes[i] = binary.charCodeAt(i);
+	}
+	return bytes;
 }

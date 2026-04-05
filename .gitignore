@@ -3,3 +3,5 @@ package-lock.json
 .vscode
 tiles
 tiles/**
+iconSheet.aseprite
+iconSheet.png
