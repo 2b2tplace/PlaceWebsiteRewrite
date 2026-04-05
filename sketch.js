@@ -322,6 +322,72 @@ function setup() {
 	})
 
 	createIcons();
+
+	const copyLinkTitle = document.getElementById('copyLinkTitle');
+	copyLinkTitle.innerHTML = 'Share'
+	const closeButton = createIcon('close');
+	closeButton.addEventListener('click', () => {
+		document.getElementById('copyLinkScreen').classList.remove('open');
+	})
+	copyLinkTitle.appendChild(closeButton);
+	const copyLinkBody = document.getElementById('copyLinkBody');
+	copyLinkBody.innerHTML = '<div class="subheading">Options</div>';
+
+	const items = {};
+
+	Object.keys(copyLinkSettings).forEach(settingName => {
+
+		let item = document.createElement('div');
+		item.className = 'item';
+
+		let icon = createIcon(
+			copyLinkSettings[settingName] ? 'checked' : 'unchecked'
+		);
+
+		item.appendChild(icon);
+		item.insertAdjacentText('beforeend', settingName);
+
+		items[settingName] = { item, icon };
+
+		item.addEventListener('click', () => {
+
+			if (item.classList.contains('disabled')) return;
+
+			copyLinkSettings[settingName] =
+				!copyLinkSettings[settingName];
+
+			const includeAll = copyLinkSettings["Include All"];
+
+			Object.entries(items).forEach(([name, refs]) => {
+				const { item, icon } = refs;
+				if (includeAll && name !== "Include All") {
+					changeIcon(icon, 'checked');
+					item.classList.add('disabled');
+				} else {
+					changeIcon(
+						icon,
+						copyLinkSettings[name] ? 'checked' : 'unchecked'
+					);
+					item.classList.remove('disabled');
+				}
+			});
+
+			if (copyLinkSettings["Keep Existing URL Parameters"]) {
+				console.log(window.location.search)
+				document.getElementById('copyLinkText').value = `${window.location.origin}/@${encodeURL()}${window.location.search}`;
+				document.getElementById('copyLinkButton').addEventListener('click', () => {
+					navigator.clipboard.writeText(`${window.location.origin}/@${encodeURL()}${window.location.search}`);
+				})
+			} else {
+				document.getElementById('copyLinkText').value = `${window.location.origin}/@${encodeURL()}`;
+				document.getElementById('copyLinkButton').addEventListener('click', () => {
+					navigator.clipboard.writeText(`${window.location.origin}/@${encodeURL()}`);
+				})
+			}
+		});
+
+		copyLinkBody.appendChild(item);
+	});
 }
 
 // for now ive just put the function under setup while i make it
@@ -566,8 +632,6 @@ function draw() {
 			const copyLinkScreen = document.getElementById('copyLinkScreen');
 			copyLinkScreen.classList.add('open');
 			context.classList.remove('open');
-
-			setupCopyLinkScreen();
 		})
 	}
 
@@ -1112,73 +1176,4 @@ function base64UrlDecode(str) {
 		bytes[i] = binary.charCodeAt(i);
 	}
 	return bytes;
-}
-
-function setupCopyLinkScreen() {
-	const copyLinkTitle = document.getElementById('copyLinkTitle');
-	copyLinkTitle.innerHTML = '';
-	copyLinkTitle.textContent = 'Share';
-	const closeButton = createIcon('close');
-	closeButton.addEventListener('click', () => {
-		document.getElementById('copyLinkScreen').classList.remove('open');
-	})
-	copyLinkTitle.appendChild(closeButton);
-	const copyLinkBody = document.getElementById('copyLinkBody');
-	copyLinkBody.innerHTML = '<div class="subheading">Options</div>';
-
-	const items = {};
-
-	Object.keys(copyLinkSettings).forEach(settingName => {
-
-		let item = document.createElement('div');
-		item.className = 'item';
-
-		let icon = createIcon(
-			copyLinkSettings[settingName] ? 'checked' : 'unchecked'
-		);
-
-		item.appendChild(icon);
-		item.insertAdjacentText('beforeend', settingName);
-
-		items[settingName] = { item, icon };
-
-		item.addEventListener('click', () => {
-
-			if (item.classList.contains('disabled')) return;
-
-			copyLinkSettings[settingName] =
-				!copyLinkSettings[settingName];
-
-			const includeAll = copyLinkSettings["Include All"];
-
-			Object.entries(items).forEach(([name, refs]) => {
-				const { item, icon } = refs;
-				if (includeAll && name !== "Include All") {
-					changeIcon(icon, 'checked');
-					item.classList.add('disabled');
-				} else {
-					changeIcon(
-						icon,
-						copyLinkSettings[name] ? 'checked' : 'unchecked'
-					);
-					item.classList.remove('disabled');
-				}
-			});
-
-			if (copyLinkSettings["Keep Existing URL Parameters"]) {
-				console.log(window.location.search)
-				document.getElementById('copyLinkText').value = `${window.location.origin}/@${encodeURL()}${window.location.search}`;
-				document.getElementById('copyLinkButton').addEventListener('click', () => {
-					navigator.clipboard.writeText(`${window.location.origin}/@${encodeURL()}${window.location.search}`);
-				})
-			} else {
-				document.getElementById('copyLinkText').value = `${window.location.origin}/@${encodeURL()}`;
-				document.getElementById('copyLinkButton').addEventListener('click', () => {
-					navigator.clipboard.writeText(`${window.location.origin}/@${encodeURL()}`);
-				})
-			}
-		});
-
-		copyLinkBody.appendChild(item);
-	});
 }
