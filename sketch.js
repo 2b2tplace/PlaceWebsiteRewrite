@@ -472,7 +472,7 @@ function configureLayerSettings(layerName, layer) {
 		setting.append(reset, icon, name);
 
 		if (layer.settings[item].type == 'toggle') {
-			let settingtoggle = createIcon('on');
+			let settingtoggle = createIcon(layer.settings[item].value ? 'on' : 'off');
 			settingtoggle.classList.add('right');
 			settingtoggle.addEventListener("click", (e) => {
 				layer.settings[item].value = !layer.settings[item].value
