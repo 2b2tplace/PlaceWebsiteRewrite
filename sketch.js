@@ -92,6 +92,21 @@ function setup() {
 			camera.x = details.lat;
 			camera.y = details.lng;
 			currentDimension = details.currentDimension;
+
+			if (details.layers) {
+				for (const name of Object.keys(details.layers)) {
+					if (layers[name]) {
+						layers[name].visible = details.layers[name].visible;
+						if (layers[name].settings && details.layers[name].settings) {
+							for (const sName of Object.keys(details.layers[name].settings)) {
+								if (layers[name].settings[sName]) {
+									layers[name].settings[sName].value = details.layers[name].settings[sName];
+								}
+							}
+						}
+					}
+				}
+			}
 		}
 	} else {
 		camera.zoom = intendedCamZoom;
@@ -1090,6 +1105,34 @@ function encodeURL({ lat = Math.round(camera.x), lng = Math.round(camera.y), cam
 	stream.writeVarint(zigzag(Math.round(camzoom * 10000)));
 	stream.writeBits(currentDimension, 2);
 
+	let featureMask = 0;
+	if (copyLinkSettings["Layer Settings"]) featureMask |= 1;
+	if (copyLinkSettings["Current Search"]) featureMask |= 2;
+	if (copyLinkSettings["Your Markers"]) featureMask |= 4;
+
+	if (featureMask > 0) {
+		stream.writeVarint(featureMask);
+
+		if (featureMask & 1) {
+			for (const name of Object.keys(layers)) {
+				const layer = layers[name];
+				stream.writeBits(layer.visible ? 1 : 0, 1);
+				if (layer.settings) {
+					for (const sName of Object.keys(layer.settings)) {
+						const setting = layer.settings[sName];
+						if (setting.type === 'toggle') {
+							stream.writeBits(setting.value ? 1 : 0, 1);
+						} else if (setting.type === 'slider') {
+							const val = Math.max(0, Math.min(1, setting.value));
+							stream.writeBits(Math.round(val * 255), 8);
+						}
+					}
+				}
+			}
+		}
+		// gonna add current search and your markers later
+	}
+
 	return base64UrlEncode(stream.getUint8Array());
 }
 
@@ -1104,11 +1147,40 @@ function decodeURL(base64String) {
 	const zoomRaw = unzigzag(stream.readVarint());
 	const currentDimension = stream.readBits(2);
 
+	let decodedLayers = null;
+
+	if (stream.hasMore()) {
+		const featureMask = stream.readVarint();
+		if (featureMask & 1) {
+			decodedLayers = {};
+			for (const name of Object.keys(layers)) {
+				const visible = stream.readBits(1) === 1;
+				const settings = {};
+				if (layers[name].settings) {
+					for (const sName of Object.keys(layers[name].settings)) {
+						const type = layers[name].settings[sName].type;
+						if (type === 'toggle') {
+							settings[sName] = stream.readBits(1) === 1;
+						} else if (type === 'slider') {
+							settings[sName] = stream.readBits(8) / 255;
+						}
+					}
+				}
+				decodedLayers[name] = { visible, settings };
+			}
+		}
+
+		// gonna add current search and your markers later
+		// if (featureMask & 2) {
+		// if (featureMask & 4) {
+	}
+
 	return {
 		lat,
 		lng,
 		camzoom: zoomRaw / 10000,
-		currentDimension
+		currentDimension,
+		layers: decodedLayers
 	};
 }
 
@@ -1117,6 +1189,10 @@ class BitStream {
 		this.bytes = uint8Array ? Array.from(uint8Array) : [];
 		this.byteIdx = 0;
 		this.bitPos = 0;
+	}
+
+	hasMore() {
+		return this.byteIdx < this.bytes.length;
 	}
 
 	writeBits(val, count) {
