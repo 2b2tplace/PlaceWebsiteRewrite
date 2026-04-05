@@ -1106,6 +1106,11 @@ function encodeURL({ lat = Math.round(camera.x), lng = Math.round(camera.y), cam
 	stream.writeBits(currentDimension, 2);
 
 	let featureMask = 0;
+	if (copyLinkSettings["Include All"]) {
+		featureMask |=1;
+		featureMask |=2;
+		featureMask |=4;
+	} 
 	if (copyLinkSettings["Layer Settings"]) featureMask |= 1;
 	if (copyLinkSettings["Current Search"]) featureMask |= 2;
 	if (copyLinkSettings["Your Markers"]) featureMask |= 4;
