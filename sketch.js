@@ -372,22 +372,47 @@ function setup() {
 				}
 			});
 
-			if (copyLinkSettings["Keep Existing URL Parameters"]) {
-				console.log(window.location.search)
-				document.getElementById('copyLinkText').value = `${window.location.origin}/@${encodeURL()}${window.location.search}`;
-				document.getElementById('copyLinkButton').addEventListener('click', () => {
-					navigator.clipboard.writeText(`${window.location.origin}/@${encodeURL()}${window.location.search}`);
-				})
-			} else {
-				document.getElementById('copyLinkText').value = `${window.location.origin}/@${encodeURL()}`;
-				document.getElementById('copyLinkButton').addEventListener('click', () => {
-					navigator.clipboard.writeText(`${window.location.origin}/@${encodeURL()}`);
-				})
-			}
+			const baseURL = `${window.location.origin}/@${encodeURL()}`;
+			const finalURL = copyLinkSettings["Keep Existing URL Parameters"]
+				? baseURL + window.location.search
+				: baseURL;
+
+			document.getElementById('copyLinkText').value = finalURL;
+
+			document
+				.getElementById('copyLinkButton')
+				.onclick = () => copyToClipboard();
 		});
 
 		copyLinkBody.appendChild(item);
 	});
+}
+
+async function copyToClipboard() {
+	const baseURL = `${window.location.origin}/@${encodeURL()}`;
+	const finalURL = copyLinkSettings["Keep Existing URL Parameters"]
+		? baseURL + window.location.search
+		: baseURL;
+	try {
+		if (navigator.clipboard && window.isSecureContext && false) {
+			await navigator.clipboard.writeText(finalURL);
+		} else {
+			const textarea = document.createElement("textarea");
+			textarea.value = finalURL;
+			textarea.style.position = "fixed";
+			textarea.style.left = "-9999px";
+			document.body.appendChild(textarea);
+
+			textarea.focus();
+			textarea.select();
+			document.execCommand("copy");
+
+			document.body.removeChild(textarea);
+		}
+		console.log("Copied!");
+	} catch (err) {
+		console.error("Copy failed:", err);
+	}
 }
 
 // for now ive just put the function under setup while i make it
@@ -625,9 +650,9 @@ function draw() {
 		const copyLink = document.getElementById('copylink');
 		copyLink.addEventListener("click", () => {
 			document.getElementById('copyLinkText').value = `${window.location.origin}/@${encodeURL()}`;
-			document.getElementById('copyLinkButton').addEventListener('click', () => {
-				navigator.clipboard.writeText(`${window.location.origin}/@${encodeURL()}`);
-			})
+			document.getElementById('copyLinkButton').onclick = () => {
+				copyToClipboard();
+			}
 
 			const copyLinkScreen = document.getElementById('copyLinkScreen');
 			copyLinkScreen.classList.add('open');
