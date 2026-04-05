@@ -388,7 +388,7 @@ function setup() {
 			});
 
 			const baseURL = `${window.location.origin}/@${encodeURL()}`;
-			const finalURL = copyLinkSettings["Keep Existing URL Parameters"]
+			const finalURL = (copyLinkSettings["Keep Existing URL Parameters"] || copyLinkSettings["Include All"])
 				? baseURL + window.location.search
 				: baseURL;
 
@@ -405,7 +405,7 @@ function setup() {
 
 async function copyToClipboard() {
 	const baseURL = `${window.location.origin}/@${encodeURL()}`;
-	const finalURL = copyLinkSettings["Keep Existing URL Parameters"]
+	const finalURL = (copyLinkSettings["Keep Existing URL Parameters"] || copyLinkSettings["Include All"])
 		? baseURL + window.location.search
 		: baseURL;
 	try {
