@@ -1016,8 +1016,10 @@ function drawTile(tx, ty, lod, x, y, size, loadIfUncached = true, loadingForLowQ
 
 	let tile = tileCache[key];
 	if (!tile) {
-		tile = { loading: false, loaded: false, failed: false, firstSeen: Date.now() };
+		tile = { loading: false, loaded: false, failed: false, firstSeen: Date.now(), lastAccessed: Date.now() };
 		tileCache[key] = tile;
+	} else {
+		tile.lastAccessed = Date.now();
 	}
 
 	if (isAllowedToLoad) {
@@ -1030,13 +1032,12 @@ function drawTile(tx, ty, lod, x, y, size, loadIfUncached = true, loadingForLowQ
 
 	if (debugGrid) {
 		activeTileKeys.add(key);
-		if (tile) tile.lastAccessed = Date.now();
 
 		if (layer === 'base') {
 			push();
-			if (tile && tile.loaded) {
+			if (tile.loaded && !tile.failed) {
 				fill('#ff00003a');
-			} else if (tile && tile.loading) {
+			} else if (tile.loading) {
 				fill('#2bff0018');
 			} else {
 				noFill();
@@ -1052,25 +1053,25 @@ function drawTile(tx, ty, lod, x, y, size, loadIfUncached = true, loadingForLowQ
 		}
 	}
 
-	if (tile && tile.loaded) {
+	if (tile.loaded) {
 		activeTileKeys.add(key);
 		if (!debugGrid) {
-			if (layer === 'base' && tile.imgBase) {
-				image(tile.imgBase, x, y, size, size);
+			if (layer === 'base') {
+				if (tile.imgBase) image(tile.imgBase, x, y, size, size);
 				return;
-			} else if (layer === 'overlay' && tile.imgOverlay) {
-				image(tile.imgOverlay, x, y, size, size);
+			} else if (layer === 'overlay') {
+				if (tile.imgOverlay) image(tile.imgOverlay, x, y, size, size);
 				return;
-			} else if (layer === 'newchunks' && tile.imgNewChunks) {
-				image(tile.imgNewChunks, x, y, size, size);
+			} else if (layer === 'newchunks') {
+				if (tile.imgNewChunks) image(tile.imgNewChunks, x, y, size, size);
 				return;
 			}
+		} else {
+			return;
 		}
 	}
 
-	if (tile) tile.lastAccessed = Date.now();
-
-	if (tile && tile.failed) return;
+	if (tile.failed) return;
 
 	let parentLod = lod + 1;
 
@@ -1093,16 +1094,18 @@ function drawTile(tx, ty, lod, x, y, size, loadIfUncached = true, loadingForLowQ
 			let sH = Math.ceil(sSize);
 
 			if (!debugGrid) {
-				if (layer === 'base' && pTile.imgBase) {
-					image(pTile.imgBase, x, y, size, size, sX, sY, sW, sH);
+				if (layer === 'base') {
+					if (pTile.imgBase) image(pTile.imgBase, x, y, size, size, sX, sY, sW, sH);
 					return;
-				} else if (layer === 'overlay' && pTile.imgOverlay) {
-					image(pTile.imgOverlay, x, y, size, size, sX, sY, sW, sH);
+				} else if (layer === 'overlay') {
+					if (pTile.imgOverlay) image(pTile.imgOverlay, x, y, size, size, sX, sY, sW, sH);
 					return;
-				} else if (layer === 'newchunks' && pTile.imgNewChunks) {
-					image(pTile.imgNewChunks, x, y, size, size, sX, sY, sW, sH);
+				} else if (layer === 'newchunks') {
+					if (pTile.imgNewChunks) image(pTile.imgNewChunks, x, y, size, size, sX, sY, sW, sH);
 					return;
 				}
+			} else {
+				return;
 			}
 		}
 		parentLod++;
