@@ -5,7 +5,7 @@ let smoothCamVel = 0;
 let lod;
 let wasPressed = false;
 
-let camera = { x: 0, y: 0, zoom: 0.004 }; 
+let camera = { x: 0, y: 0, zoom: 0.004 };
 
 let intendedCamZoom = 0.004;
 let tileCache = {};
@@ -149,11 +149,11 @@ function setup() {
 	createCanvas(windowWidth, windowHeight, WEBGL);
 	textFont(poppins);
 	imageMode(CORNER);
-	
+
 	document.addEventListener('contextmenu', event => {
 		if (event.target.tagName.toLowerCase() === 'canvas') {
 			event.preventDefault();
-			
+
 			const context = document.getElementById('rightClickContext');
 			context.classList.add('open');
 			context.style.left = event.clientX + 'px';
@@ -617,11 +617,11 @@ function getWorldMouse() {
 }
 
 function draw() {
-    update();
+	update();
 
-    if (mouseIsPressed && mouseButton === LEFT) {
-        document.getElementById('rightClickContext').classList.remove('open');
-    }
+	if (mouseIsPressed && mouseButton === LEFT) {
+		document.getElementById('rightClickContext').classList.remove('open');
+	}
 
 	if (mouseIsPressed && mouseButton === LEFT) {
 		if (!wasPressed) {
@@ -644,16 +644,16 @@ function draw() {
 	background('black');
 	noSmooth();
 	push();
-	
-	translate(width / 2, height / 2); 
+
+	translate(width / 2, height / 2);
 	scale(camera.zoom);
 	translate(-camera.x, -camera.y);
 
 	tilesToDraw.length = 0;
 	activeTileKeys.clear();
 
-    const halfWidth = width / 2;
-    const halfHeight = height / 2;
+	const halfWidth = width / 2;
+	const halfHeight = height / 2;
 
 	if (cameraVel >= 0) {
 		lod = Math.floor(-Math.log2(camera.zoom));
@@ -693,7 +693,7 @@ function draw() {
 	const topLeftTileY = Math.floor((camera.y - halfHeight / camera.zoom) / tileSize);
 	const bottomRightTileX = Math.floor((camera.x + halfWidth / camera.zoom) / tileSize);
 	const bottomRightTileY = Math.floor((camera.y + halfHeight / camera.zoom) / tileSize);
-	
+
 	const centerX = (topLeftTileX + bottomRightTileX) / 2;
 	const centerY = (topLeftTileY + bottomRightTileY) / 2;
 
@@ -709,7 +709,7 @@ function draw() {
 			tilesToDraw.push({ tx, ty, dist });
 		}
 	}
-	
+
 	tilesToDraw.sort((a, b) => a.dist - b.dist);
 	const isFastMoving = Math.abs(cameraVel) > 0.005;
 	const dynamicDwell = isFastMoving ? 600 : 50;
@@ -726,7 +726,7 @@ function draw() {
 	}
 
 	parallax = 0.5 * camera.zoom ** 2;
-	
+
 	if (parallax < 5) {
 		overlayOpacity = lerp(overlayOpacity, layers["Obsidian"].settings.Opacity.value, 0.1);
 	} else if (layers["Obsidian"].settings.Parallax.value) {
@@ -904,7 +904,7 @@ function update() {
 			camera.zoom = newZoom;
 
 			const zoomRatio = previousZoom / newZoom;
-			const wMouse = getWorldMouse(); 
+			const wMouse = getWorldMouse();
 
 			camera.x += (wMouse.x - camera.x) * (1 - zoomRatio);
 			camera.y += (wMouse.y - camera.y) * (1 - zoomRatio);
@@ -930,7 +930,7 @@ function windowResized() {
 }
 
 function tileKey(tileX, tileY, lod, dim) {
-	return `${tileX}_${tileY}_${lod}_${dim}`;
+	return (BigInt(tileX) & 0x1FFFFFFn) << 35n | (BigInt(tileY) & 0x1FFFFFFn) << 10n | (BigInt(lod) & 0x7Fn) << 3n | (BigInt(dim) & 0x7n);
 }
 
 async function loadTile(lod, tx, ty, allowLoading = true) {
@@ -946,20 +946,20 @@ async function loadTile(lod, tx, ty, allowLoading = true) {
 	try {
 		const sx = (tx / 32) >> 0;
 		const sy = (ty / 32) >> 0;
-		
-        const fetchPromises = [];
 
-        if (layers["World"].visible) {
-            fetchPromises.push(fetch(`/tiles/base/${lod}/${currentDimension}/${sx}/${sy}/t.${tx}.${ty}.webp`, { signal: controller.signal }));
-        } else { fetchPromises.push(Promise.resolve(null)); }
+		const fetchPromises = [];
 
-        if (layers["Obsidian"].visible) {
-            fetchPromises.push(fetch(`/tiles/overlay/${lod}/${currentDimension}/${sx}/${sy}/t.${tx}.${ty}.webp`, { signal: controller.signal }));
-        } else { fetchPromises.push(Promise.resolve(null)); }
+		if (layers["World"].visible) {
+			fetchPromises.push(fetch(`/tiles/base/${lod}/${currentDimension}/${sx}/${sy}/t.${tx}.${ty}.webp`, { signal: controller.signal }));
+		} else { fetchPromises.push(Promise.resolve(null)); }
 
-        if (layers["New Chunks"].visible) {
-            fetchPromises.push(fetch(`/tiles/newchunks/${lod}/${currentDimension}/${sx}/${sy}/t.${tx}.${ty}.webp`, { signal: controller.signal }));
-        } else { fetchPromises.push(Promise.resolve(null)); }
+		if (layers["Obsidian"].visible) {
+			fetchPromises.push(fetch(`/tiles/overlay/${lod}/${currentDimension}/${sx}/${sy}/t.${tx}.${ty}.webp`, { signal: controller.signal }));
+		} else { fetchPromises.push(Promise.resolve(null)); }
+
+		if (layers["New Chunks"].visible) {
+			fetchPromises.push(fetch(`/tiles/newchunks/${lod}/${currentDimension}/${sx}/${sy}/t.${tx}.${ty}.webp`, { signal: controller.signal }));
+		} else { fetchPromises.push(Promise.resolve(null)); }
 
 		const [resBase, resOverlay, resNewChunks] = await Promise.all(fetchPromises);
 
@@ -991,7 +991,7 @@ async function loadTile(lod, tx, ty, allowLoading = true) {
 
 	} catch (e) {
 		if (e.name === 'AbortError') return;
-		
+
 		tileCache[key] = {
 			loaded: false,
 			loading: false,
@@ -1244,8 +1244,8 @@ function setupSlider(imgElement, settingObj, min = 0, max = 1) {
 function getClusters() {
 	let visibleLocations = [];
 
-    const halfWidth = width / 2;
-    const halfHeight = height / 2;
+	const halfWidth = width / 2;
+	const halfHeight = height / 2;
 	const margin = 100 * (1 / camera.zoom);
 	const viewLeft = camera.x - halfWidth / camera.zoom - margin;
 	const viewRight = camera.x + halfWidth / camera.zoom + margin;
