@@ -3,6 +3,10 @@ let lastCamX = 0, lastCamY = 0;
 let lastDisplayX = null, lastDisplayY = null;
 let smoothCamVel = 0;
 let lod;
+let wasPressed = false;
+
+let camera = { x: 0, y: 0, zoom: 0.004 }; 
+
 let intendedCamZoom = 0.004;
 let tileCache = {};
 let cameraVel = 0;
@@ -144,16 +148,52 @@ function preload() {
 function setup() {
 	createCanvas(windowWidth, windowHeight, WEBGL);
 	textFont(poppins);
-	camera.on();
+	imageMode(CORNER);
+	
+	document.addEventListener('contextmenu', event => {
+		if (event.target.tagName.toLowerCase() === 'canvas') {
+			event.preventDefault();
+			
+			const context = document.getElementById('rightClickContext');
+			context.classList.add('open');
+			context.style.left = event.clientX + 'px';
+			context.style.top = event.clientY + 'px';
+
+			const wMouse = getWorldMouse();
+			const savedX = Math.round(wMouse.x);
+			const savedZ = Math.round(wMouse.y);
+
+			const copycoords = document.getElementById('copycoordinates');
+			let newCopyCoords = copycoords.cloneNode(true);
+			copycoords.parentNode.replaceChild(newCopyCoords, copycoords);
+			newCopyCoords.addEventListener("click", () => {
+				navigator.clipboard.writeText(`${savedX}, ${savedZ}`);
+				context.classList.remove('open');
+			});
+
+			const copyLink = document.getElementById('copylink');
+			let newCopyLink = copyLink.cloneNode(true);
+			copyLink.parentNode.replaceChild(newCopyLink, copyLink);
+			newCopyLink.addEventListener("click", () => {
+				document.getElementById('copyLinkText').value = `${window.location.origin}/@${encodeURL()}`;
+				document.getElementById('copyLinkButton').onclick = () => {
+					copyToClipboard(createURL());
+				}
+
+				const copyLinkScreen = document.getElementById('copyLinkScreen');
+				copyLinkScreen.classList.add('open');
+				context.classList.remove('open');
+			});
+		}
+	});
+
 	// load prev camera view
 	const path = window.location.pathname;
 	const match = path.match(/@([^/]+)/);
 	if (match) {
 		const value = match[1];
 		if (value.includes(",")) {
-			const [lat, lng, zoom, dim] =
-				value.split(",").map(Number);
-
+			const [lat, lng, zoom, dim] = value.split(",").map(Number);
 			intendedCamZoom = zoom;
 			camera.zoom = zoom;
 			camera.x = lat;
@@ -411,31 +451,21 @@ function setup() {
 		layersButton.appendChild(item);
 	}
 
-	// toggles in the middle
 	const overworldToggle = document.getElementById('overworldToggle');
 	overworldToggle.addEventListener("click", () => {
-		if (currentDimension == 1) {
-			camera.x *= 8;
-			camera.y *= 8;
-		}
+		if (currentDimension == 1) { camera.x *= 8; camera.y *= 8; }
 		currentDimension = 0;
 		updateMapURL();
 	})
 	const netherToggle = document.getElementById('netherToggle');
 	netherToggle.addEventListener("click", () => {
-		if (currentDimension != 1) {
-			camera.x /= 8;
-			camera.y /= 8;
-		}
+		if (currentDimension != 1) { camera.x /= 8; camera.y /= 8; }
 		currentDimension = 1;
 		updateMapURL();
 	})
 	const endToggle = document.getElementById('endToggle');
 	endToggle.addEventListener("click", () => {
-		if (currentDimension == 1) {
-			camera.x *= 8;
-			camera.y *= 8;
-		}
+		if (currentDimension == 1) { camera.x *= 8; camera.y *= 8; }
 		currentDimension = 2;
 		updateMapURL();
 	})
@@ -455,26 +485,16 @@ function setup() {
 	const items = {};
 
 	Object.keys(copyLinkSettings).forEach(settingName => {
-
 		let item = document.createElement('div');
 		item.className = 'item';
-
-		let icon = createIcon(
-			copyLinkSettings[settingName] ? 'checked' : 'unchecked'
-		);
-
+		let icon = createIcon(copyLinkSettings[settingName] ? 'checked' : 'unchecked');
 		item.appendChild(icon);
 		item.insertAdjacentText('beforeend', settingName);
-
 		items[settingName] = { item, icon };
 
 		item.addEventListener('click', () => {
-
 			if (item.classList.contains('disabled')) return;
-
-			copyLinkSettings[settingName] =
-				!copyLinkSettings[settingName];
-
+			copyLinkSettings[settingName] = !copyLinkSettings[settingName];
 			const includeAll = copyLinkSettings["Include All"];
 
 			Object.entries(items).forEach(([name, refs]) => {
@@ -483,21 +503,13 @@ function setup() {
 					changeIcon(icon, 'checked');
 					item.classList.add('disabled');
 				} else {
-					changeIcon(
-						icon,
-						copyLinkSettings[name] ? 'checked' : 'unchecked'
-					);
+					changeIcon(icon, copyLinkSettings[name] ? 'checked' : 'unchecked');
 					item.classList.remove('disabled');
 				}
 			});
-
 			document.getElementById('copyLinkText').value = createURL();
-
-			document
-				.getElementById('copyLinkButton')
-				.onclick = () => copyToClipboard(createURL());
+			document.getElementById('copyLinkButton').onclick = () => copyToClipboard(createURL());
 		});
-
 		copyLinkBody.appendChild(item);
 	});
 }
@@ -520,18 +532,14 @@ async function copyToClipboard(text) {
 			textarea.style.position = "fixed";
 			textarea.style.left = "-9999px";
 			document.body.appendChild(textarea);
-
 			textarea.focus();
 			textarea.select();
 			document.execCommand("copy");
-
 			document.body.removeChild(textarea);
 		}
 		const element = document.getElementById('copyPopup');
 		element.classList.add("animate");
-		setTimeout(() => {
-			element.classList.remove("animate");
-		}, 1000);
+		setTimeout(() => { element.classList.remove("animate"); }, 1000);
 		return true;
 	} catch (err) {
 		console.error("Copy failed:", err);
@@ -539,7 +547,6 @@ async function copyToClipboard(text) {
 	}
 }
 
-// for now ive just put the function under setup while i make it
 function configureLayerSettings(layerName, layer) {
 	currentLayerSettings = layerName;
 	layersettings.innerHTML = '';
@@ -596,28 +603,63 @@ function configureLayerSettings(layerName, layer) {
 			settingslider.src = '/icon/slider.png';
 			settingslider.className = 'slider'
 			setting.appendChild(settingslider);
-
 			setupSlider(settingslider, layer.settings[item], 0, 1);
 		}
-
 		layersettings.appendChild(setting);
 	}
 }
 
+function getWorldMouse() {
+	return {
+		x: (mouseX - width / 2) / camera.zoom + camera.x,
+		y: (mouseY - height / 2) / camera.zoom + camera.y
+	};
+}
+
 function draw() {
-	// clear canvas
+    update();
+
+    if (mouseIsPressed && mouseButton === LEFT) {
+        document.getElementById('rightClickContext').classList.remove('open');
+    }
+
+	if (mouseIsPressed && mouseButton === LEFT) {
+		if (!wasPressed) {
+			originalMouseX = mouseX;
+			originalMouseY = mouseY;
+			originalCameraX = camera.x;
+			originalCameraY = camera.y;
+			wasPressed = true;
+		} else {
+			camera.x = originalCameraX + ((originalMouseX - mouseX) / camera.zoom);
+			camera.y = originalCameraY + ((originalMouseY - mouseY) / camera.zoom);
+		}
+	} else {
+		if (wasPressed) {
+			updateMapURL();
+			wasPressed = false;
+		}
+	}
+
 	background('black');
-	camera.on();
 	noSmooth();
+	push();
+	
+	translate(width / 2, height / 2); 
+	scale(camera.zoom);
+	translate(-camera.x, -camera.y);
+
 	tilesToDraw.length = 0;
 	activeTileKeys.clear();
+
+    const halfWidth = width / 2;
+    const halfHeight = height / 2;
 
 	if (cameraVel >= 0) {
 		lod = Math.floor(-Math.log2(camera.zoom));
 		lod = Math.max(0, Math.min(10, lod));
 	}
 
-	// calculate current camera speed
 	const speed = Math.sqrt((camera.x - lastCamX) ** 2 + (camera.y - lastCamY) ** 2);
 	smoothCamVel = (smoothCamVel * 0.9) + (speed * 0.1);
 	lastCamX = camera.x;
@@ -651,7 +693,7 @@ function draw() {
 	const topLeftTileY = Math.floor((camera.y - halfHeight / camera.zoom) / tileSize);
 	const bottomRightTileX = Math.floor((camera.x + halfWidth / camera.zoom) / tileSize);
 	const bottomRightTileY = Math.floor((camera.y + halfHeight / camera.zoom) / tileSize);
-	// to load tiles from center of screen instead of top left to bottom right
+	
 	const centerX = (topLeftTileX + bottomRightTileX) / 2;
 	const centerY = (topLeftTileY + bottomRightTileY) / 2;
 
@@ -660,7 +702,6 @@ function draw() {
 			const tx = topLeftTileX + i;
 			const ty = topLeftTileY + j;
 
-			// no need to sqrt because i dont need perfect distance calc
 			const dx = tx - centerX;
 			const dy = ty - centerY;
 			const dist = dx ** 2 + dy ** 2;
@@ -668,16 +709,15 @@ function draw() {
 			tilesToDraw.push({ tx, ty, dist });
 		}
 	}
-	// sort tiles
+	
 	tilesToDraw.sort((a, b) => a.dist - b.dist);
 	const isFastMoving = Math.abs(cameraVel) > 0.005;
 	const dynamicDwell = isFastMoving ? 600 : 50;
 
-	// draw base
 	if (layers["World"].visible) {
 		push();
 		opacity(layers["World"].settings.Opacity.value)
-		tilesToDraw.forEach((tile, index) => {
+		tilesToDraw.forEach((tile) => {
 			const drawX = Math.floor(tile.tx * tileSize);
 			const drawY = Math.floor(tile.ty * tileSize);
 			drawTile(tile.tx, tile.ty, lod, drawX, drawY, Math.floor(tileSize), !isFastMoving, false, dynamicDwell, 'base');
@@ -686,7 +726,7 @@ function draw() {
 	}
 
 	parallax = 0.5 * camera.zoom ** 2;
-	// overlay
+	
 	if (parallax < 5) {
 		overlayOpacity = lerp(overlayOpacity, layers["Obsidian"].settings.Opacity.value, 0.1);
 	} else if (layers["Obsidian"].settings.Parallax.value) {
@@ -696,11 +736,10 @@ function draw() {
 	if (layers["Obsidian"].visible && overlayOpacity > 0) {
 		push();
 		opacity(overlayOpacity);
-		tilesToDraw.forEach((tile, index) => {
+		tilesToDraw.forEach((tile) => {
 			const drawX = Math.floor(tile.tx * tileSize);
 			const drawY = Math.floor(tile.ty * tileSize);
 
-			// parallax
 			const dx = drawX - camera.x;
 			const dy = drawY - camera.y;
 
@@ -720,7 +759,7 @@ function draw() {
 	if (layers["New Chunks"].visible) {
 		push();
 		opacity(layers["New Chunks"].settings.Opacity.value);
-		tilesToDraw.forEach((tile, index) => {
+		tilesToDraw.forEach((tile) => {
 			const drawX = Math.floor(tile.tx * tileSize);
 			const drawY = Math.floor(tile.ty * tileSize);
 			drawTile(tile.tx, tile.ty, lod, drawX, drawY, Math.floor(tileSize), !isFastMoving, false, dynamicDwell, 'newchunks');
@@ -743,24 +782,24 @@ function draw() {
 		}
 
 		push();
-		const scale = 1 / camera.zoom;
+		const scaleAmount = 1 / camera.zoom;
 
 		for (let cluster of cachedClusters) {
 			if (cluster.count > 1) {
 				fill(40, 150, 255, 200);
 				stroke(255);
-				strokeWeight(2 * scale);
-				let circleSize = (25 + Math.min(cluster.count, 20)) * scale;
+				strokeWeight(2 * scaleAmount);
+				let circleSize = (25 + Math.min(cluster.count, 20)) * scaleAmount;
 				ellipse(cluster.x, cluster.z, circleSize);
 
 				fill(255);
 				noStroke();
 				textAlign(CENTER, CENTER);
-				textSize(16 * scale);
+				textSize(16 * scaleAmount);
 				text(cluster.count, cluster.x, cluster.z);
 			} else {
 				let loc = cluster.original;
-				let iconSize = 32 * scale;
+				let iconSize = 32 * scaleAmount;
 
 				if (pinIcon && pinIcon.width > 0) {
 					image(pinIcon, loc.x - iconSize / 2, loc.z - iconSize, iconSize, iconSize);
@@ -769,15 +808,17 @@ function draw() {
 				if (camera.zoom > 0.001) {
 					fill(255);
 					stroke(0);
-					strokeWeight(2 * scale);
+					strokeWeight(2 * scaleAmount);
 					textAlign(CENTER, BOTTOM);
-					textSize(18 * scale);
-					text(loc.name, loc.x, loc.z - iconSize - (4 * scale));
+					textSize(18 * scaleAmount);
+					text(loc.name, loc.x, loc.z - iconSize - (4 * scaleAmount));
 				}
 			}
 		}
 		pop();
 	}
+
+	pop();
 
 	if (frameCount % 120 == 0) {
 		pruneCache();
@@ -789,55 +830,9 @@ function draw() {
 		}
 	}
 
-	// map panning logic
-	if (mouse.presses('left')) {
-		const context = document.getElementById('rightClickContext');
-		context.classList.remove('open');
-
-		originalMouseX = mouseX;
-		originalMouseY = mouseY;
-		originalCameraX = camera.x;
-		originalCameraY = camera.y;
-	}
-	if (mouse.pressing('left')) {
-		camera.x = originalCameraX + ((originalMouseX - mouseX) / camera.zoom);
-		camera.y = originalCameraY + ((originalMouseY - mouseY) / camera.zoom);
-	}
-	if (mouse.released('left')) {
-		updateMapURL();
-	}
-
-	// right click context menu
-	if (mouse.presses('right')) {
-		const context = document.getElementById('rightClickContext');
-		context.classList.add('open');
-		context.style.left = mouseX + 'px';
-		context.style.top = mouseY + 'px';
-
-		const copycoords = document.getElementById('copycoordinates');
-		const savedX = Math.round(mouse.x);
-		const savedZ = Math.round(mouse.y);
-		copycoords.addEventListener("click", () => {
-			navigator.clipboard.writeText(`${savedX}, ${savedZ}`);
-			context.classList.remove('open');
-		})
-
-		const copyLink = document.getElementById('copylink');
-		copyLink.addEventListener("click", () => {
-			document.getElementById('copyLinkText').value = `${window.location.origin}/@${encodeURL()}`;
-			document.getElementById('copyLinkButton').onclick = () => {
-				copyToClipboard(createURL());
-			}
-
-			const copyLinkScreen = document.getElementById('copyLinkScreen');
-			copyLinkScreen.classList.add('open');
-			context.classList.remove('open');
-		})
-	}
-
-	// display coordinates based on dimension
-	let displayX = Math.round(mouse.x);
-	let displayY = Math.round(mouse.y);
+	const wMouse = getWorldMouse();
+	let displayX = Math.round(wMouse.x);
+	let displayY = Math.round(wMouse.y);
 
 	if (displayX !== lastDisplayX || displayY !== lastDisplayY) {
 		if (currentDimension == 0 || currentDimension == 2) {
@@ -859,9 +854,14 @@ function draw() {
 		changeIcon(document.getElementById('overworldCoordinates').firstElementChild, 'world');
 	}
 
-	// reset mouse scroll
 	mouseScrollX = 0;
 	mouseScrollY = 0;
+}
+
+function mousePressed(event) {
+	if (event.target.tagName.toLowerCase() !== 'canvas') {
+		wasPressed = false;
+	}
 }
 
 function mouseWheel(event) {
@@ -873,13 +873,11 @@ function mouseWheel(event) {
 	} else if (event.deltaMode === 0) {
 		isTrackpad = true;
 	}
-	// includes both X and Y for supported devices
 	mouseScrollX = event.deltaX;
 	mouseScrollY = event.deltaY;
 
 	updateMapURL();
-	// return required for safari browser to be supported
-	return false;
+	return false; // prevent safari default scrolling
 }
 
 function update() {
@@ -895,43 +893,31 @@ function update() {
 
 			intendedCamZoom *= Math.exp(scroll / -250);
 
-			// clamp in log space
 			const logZoom = Math.log(intendedCamZoom);
 			intendedCamZoom = Math.exp(
 				Math.min(LOG_ZOOM_MAX, Math.max(LOG_ZOOM_MIN, logZoom))
 			);
 
-			// smooth zoom
 			const previousZoom = camera.zoom;
-
-			const newZoom =
-				Math.round(
-					(previousZoom +
-						(intendedCamZoom - previousZoom) / ZOOM_SMOOTHING) *
-					ROUND_ZOOM
-				) / ROUND_ZOOM;
+			const newZoom = Math.round((previousZoom + (intendedCamZoom - previousZoom) / ZOOM_SMOOTHING) * ROUND_ZOOM) / ROUND_ZOOM;
 
 			camera.zoom = newZoom;
 
-			// zoom towards mouse
 			const zoomRatio = previousZoom / newZoom;
+			const wMouse = getWorldMouse(); 
 
-			camera.x += (mouse.x - camera.x) * (1 - zoomRatio);
-			camera.y += (mouse.y - camera.y) * (1 - zoomRatio);
+			camera.x += (wMouse.x - camera.x) * (1 - zoomRatio);
+			camera.y += (wMouse.y - camera.y) * (1 - zoomRatio);
 
-			// velocity
-			cameraVel =
-				Math.round((previousZoom - newZoom) * ROUND_VEL) / ROUND_VEL;
+			cameraVel = Math.round((previousZoom - newZoom) * ROUND_VEL) / ROUND_VEL;
 		}
 	} else {
-		// trackpad
 		timeOfLastPan = Date.now();
 		camera.x += mouseScrollX / camera.zoom;
 		camera.y += mouseScrollY / camera.zoom;
 		cameraVel = 0;
 	}
 
-	// poll registered listeners
 	checkChanges();
 }
 
@@ -960,36 +946,40 @@ async function loadTile(lod, tx, ty, allowLoading = true) {
 	try {
 		const sx = (tx / 32) >> 0;
 		const sy = (ty / 32) >> 0;
-		const urlBase = `/tiles/base/${lod}/${currentDimension}/${sx}/${sy}/t.${tx}.${ty}.webp`;
-		const urlOverlay = `/tiles/overlay/${lod}/${currentDimension}/${sx}/${sy}/t.${tx}.${ty}.webp`;
-		const urlNewChunks = `/tiles/newchunks/${lod}/${currentDimension}/${sx}/${sy}/t.${tx}.${ty}.webp`;
+		
+        const fetchPromises = [];
 
-		const [resBase, resOverlay, resNewChunks] = await Promise.all([
-			fetch(urlBase, { signal: controller.signal }),
-			fetch(urlOverlay, { signal: controller.signal }),
-			fetch(urlNewChunks, { signal: controller.signal })
-		]);
+        if (layers["World"].visible) {
+            fetchPromises.push(fetch(`/tiles/base/${lod}/${currentDimension}/${sx}/${sy}/t.${tx}.${ty}.webp`, { signal: controller.signal }));
+        } else { fetchPromises.push(Promise.resolve(null)); }
 
-		if (!resBase.ok && !resOverlay.ok && !resNewChunks.ok) {
-			throw new Error(`No tiles found for ${tx},${ty}`);
-		}
+        if (layers["Obsidian"].visible) {
+            fetchPromises.push(fetch(`/tiles/overlay/${lod}/${currentDimension}/${sx}/${sy}/t.${tx}.${ty}.webp`, { signal: controller.signal }));
+        } else { fetchPromises.push(Promise.resolve(null)); }
+
+        if (layers["New Chunks"].visible) {
+            fetchPromises.push(fetch(`/tiles/newchunks/${lod}/${currentDimension}/${sx}/${sy}/t.${tx}.${ty}.webp`, { signal: controller.signal }));
+        } else { fetchPromises.push(Promise.resolve(null)); }
+
+		const [resBase, resOverlay, resNewChunks] = await Promise.all(fetchPromises);
 
 		let bitmapBase = null;
-		if (resBase.ok) {
+		if (resBase && resBase.ok) {
 			try { bitmapBase = await createImageBitmap(await resBase.blob()); } catch (err) { }
 		}
 
 		let bitmapOverlay = null;
-		if (resOverlay.ok) {
+		if (resOverlay && resOverlay.ok) {
 			try { bitmapOverlay = await createImageBitmap(await resOverlay.blob()); } catch (err) { }
 		}
 
 		let bitmapNewChunks = null;
-		if (resNewChunks.ok) {
+		if (resNewChunks && resNewChunks.ok) {
 			try { bitmapNewChunks = await createImageBitmap(await resNewChunks.blob()); } catch (err) { }
 		}
 
-		// success
+		if (!bitmapBase && !bitmapOverlay && !bitmapNewChunks) throw new Error("No imagery found");
+
 		tileCache[key] = {
 			imgBase: bitmapBase,
 			imgOverlay: bitmapOverlay,
@@ -1000,10 +990,8 @@ async function loadTile(lod, tx, ty, allowLoading = true) {
 		};
 
 	} catch (e) {
-		if (e.name === 'AbortError') {
-			return;
-		}
-		// failed if fetch fails
+		if (e.name === 'AbortError') return;
+		
 		tileCache[key] = {
 			loaded: false,
 			loading: false,
@@ -1201,7 +1189,6 @@ function checkChanges() {
 	}
 }
 
-
 function setupSlider(imgElement, settingObj, min = 0, max = 1) {
 	const minVisual = 3.789062;
 	const maxVisual = 95.039063;
@@ -1257,6 +1244,8 @@ function setupSlider(imgElement, settingObj, min = 0, max = 1) {
 function getClusters() {
 	let visibleLocations = [];
 
+    const halfWidth = width / 2;
+    const halfHeight = height / 2;
 	const margin = 100 * (1 / camera.zoom);
 	const viewLeft = camera.x - halfWidth / camera.zoom - margin;
 	const viewRight = camera.x + halfWidth / camera.zoom + margin;
