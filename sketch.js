@@ -1034,30 +1034,37 @@ function drawTile(tx, ty, lod, x, y, size, loadIfUncached = true, loadingForLowQ
 
 		if (layer === 'base') {
 			push();
-			noFill();
+			if (tile && tile.loaded) {
+				fill('#ff00003a');
+			} else if (tile && tile.loading) {
+				fill('#2bff0018');
+			} else {
+				noFill();
+			}
 			tile.loading ? stroke(255, 255, 0) : stroke(255, 0, 0);
 			strokeWeight(1 / camera.zoom);
 			rect(x, y, size, size);
 			noStroke();
 			fill('red');
 			textSize(12 / camera.zoom);
-			text(`${tx}, ${ty}\nLOD: ${lod}`, x + (10/camera.zoom), y + (20/camera.zoom));
+			text(`${tx}, ${ty}\nLOD: ${lod}`, x + (10 / camera.zoom), y + (20 / camera.zoom));
 			pop();
 		}
-		return;
 	}
 
 	if (tile && tile.loaded) {
 		activeTileKeys.add(key);
-		if (layer === 'base' && tile.imgBase) {
-			image(tile.imgBase, x, y, size, size);
-			return;
-		} else if (layer === 'overlay' && tile.imgOverlay) {
-			image(tile.imgOverlay, x, y, size, size);
-			return;
-		} else if (layer === 'newchunks' && tile.imgNewChunks) {
-			image(tile.imgNewChunks, x, y, size, size);
-			return;
+		if (!debugGrid) {
+			if (layer === 'base' && tile.imgBase) {
+				image(tile.imgBase, x, y, size, size);
+				return;
+			} else if (layer === 'overlay' && tile.imgOverlay) {
+				image(tile.imgOverlay, x, y, size, size);
+				return;
+			} else if (layer === 'newchunks' && tile.imgNewChunks) {
+				image(tile.imgNewChunks, x, y, size, size);
+				return;
+			}
 		}
 	}
 
@@ -1085,15 +1092,17 @@ function drawTile(tx, ty, lod, x, y, size, loadIfUncached = true, loadingForLowQ
 			let sW = Math.ceil(sSize);
 			let sH = Math.ceil(sSize);
 
-			if (layer === 'base' && pTile.imgBase) {
-				image(pTile.imgBase, x, y, size, size, sX, sY, sW, sH);
-				return;
-			} else if (layer === 'overlay' && pTile.imgOverlay) {
-				image(pTile.imgOverlay, x, y, size, size, sX, sY, sW, sH);
-				return;
-			} else if (layer === 'newchunks' && pTile.imgNewChunks) {
-				image(pTile.imgNewChunks, x, y, size, size, sX, sY, sW, sH);
-				return;
+			if (!debugGrid) {
+				if (layer === 'base' && pTile.imgBase) {
+					image(pTile.imgBase, x, y, size, size, sX, sY, sW, sH);
+					return;
+				} else if (layer === 'overlay' && pTile.imgOverlay) {
+					image(pTile.imgOverlay, x, y, size, size, sX, sY, sW, sH);
+					return;
+				} else if (layer === 'newchunks' && pTile.imgNewChunks) {
+					image(pTile.imgNewChunks, x, y, size, size, sX, sY, sW, sH);
+					return;
+				}
 			}
 		}
 		parentLod++;
