@@ -1116,10 +1116,26 @@ function drawTile(tx, ty, lod, x, y, size, loadIfUncached = true, loadingForLowQ
 		const childSize = size / 2;
 		const childTx = tx * 2;
 		const childTy = ty * 2;
-		drawTile(childTx, childTy, childLod, x, y, childSize, false, true, currentDwell, layer);
-		drawTile(childTx + 1, childTy, childLod, x + childSize, y, childSize, false, true, currentDwell, layer);
-		drawTile(childTx, childTy + 1, childLod, x, y + childSize, childSize, false, true, currentDwell, layer);
-		drawTile(childTx + 1, childTy + 1, childLod, x + childSize, y + childSize, childSize, false, true, currentDwell, layer);
+
+		let cKey = tileKey(childTx, childTy, childLod, currentDimension);
+		if (tileCache[cKey] && tileCache[cKey].loaded) {
+			drawTile(childTx, childTy, childLod, x, y, childSize, false, true, currentDwell, layer);
+		}
+
+		cKey = tileKey(childTx + 1, childTy, childLod, currentDimension);
+		if (tileCache[cKey] && tileCache[cKey].loaded) {
+			drawTile(childTx + 1, childTy, childLod, x + childSize, y, childSize, false, true, currentDwell, layer);
+		}
+
+		cKey = tileKey(childTx, childTy + 1, childLod, currentDimension);
+		if (tileCache[cKey] && tileCache[cKey].loaded) {
+			drawTile(childTx, childTy + 1, childLod, x, y + childSize, childSize, false, true, currentDwell, layer);
+		}
+
+		cKey = tileKey(childTx + 1, childTy + 1, childLod, currentDimension);
+		if (tileCache[cKey] && tileCache[cKey].loaded) {
+			drawTile(childTx + 1, childTy + 1, childLod, x + childSize, y + childSize, childSize, false, true, currentDwell, layer);
+		}
 	}
 }
 
