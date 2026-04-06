@@ -443,6 +443,7 @@ ui:has(.layers:not(.open)) .layersettings {
   gap: 5px;
   padding: 0px;
   overflow: hidden;
+  min-width: 30vw;
 }
 
 .copyLinkDialogue .heading {

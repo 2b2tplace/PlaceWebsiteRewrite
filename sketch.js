@@ -4,9 +4,8 @@ let lastDisplayX = null, lastDisplayY = null;
 let smoothCamVel = 0;
 let lod;
 let wasPressed = false;
-
 let camera = { x: 0, y: 0, zoom: 0.004 };
-
+let rightClickCoords = { x: 0, z: 0 };
 let intendedCamZoom = 0.004;
 let tileCache = {};
 let cameraVel = 0;
@@ -150,6 +149,31 @@ function setup() {
 	textFont(poppins);
 	imageMode(CORNER);
 
+	const copycoords = document.getElementById('copycoordinates');
+	copycoords.addEventListener("click", () => {
+		navigator.clipboard.writeText(`${rightClickCoords.x}, ${rightClickCoords.z}`);
+		document.getElementById('rightClickContext').classList.remove('open');
+	});
+
+	const copyLink = document.getElementById('copylink');
+	copyLink.addEventListener("click", () => {
+		document.getElementById('copyLinkText').value = createURL();
+
+		document.getElementById('copyLinkButton').onclick = () => {
+			copyToClipboard(createURL());
+		}
+
+		document.getElementById('copyLinkScreen').classList.add('open');
+		document.getElementById('rightClickContext').classList.remove('open');
+	});
+
+	window.addEventListener('mousedown', (e) => {
+		const context = document.getElementById('rightClickContext');
+		if (!context.contains(e.target)) {
+			context.classList.remove('open');
+		}
+	});
+
 	document.addEventListener('contextmenu', event => {
 		if (event.target.tagName.toLowerCase() === 'canvas') {
 			event.preventDefault();
@@ -160,30 +184,8 @@ function setup() {
 			context.style.top = event.clientY + 'px';
 
 			const wMouse = getWorldMouse();
-			const savedX = Math.round(wMouse.x);
-			const savedZ = Math.round(wMouse.y);
-
-			const copycoords = document.getElementById('copycoordinates');
-			let newCopyCoords = copycoords.cloneNode(true);
-			copycoords.parentNode.replaceChild(newCopyCoords, copycoords);
-			newCopyCoords.addEventListener("click", () => {
-				navigator.clipboard.writeText(`${savedX}, ${savedZ}`);
-				context.classList.remove('open');
-			});
-
-			const copyLink = document.getElementById('copylink');
-			let newCopyLink = copyLink.cloneNode(true);
-			copyLink.parentNode.replaceChild(newCopyLink, copyLink);
-			newCopyLink.addEventListener("click", () => {
-				document.getElementById('copyLinkText').value = `${window.location.origin}/@${encodeURL()}`;
-				document.getElementById('copyLinkButton').onclick = () => {
-					copyToClipboard(createURL());
-				}
-
-				const copyLinkScreen = document.getElementById('copyLinkScreen');
-				copyLinkScreen.classList.add('open');
-				context.classList.remove('open');
-			});
+			rightClickCoords.x = Math.round(wMouse.x);
+			rightClickCoords.z = Math.round(wMouse.y);
 		}
 	});
 
@@ -618,10 +620,6 @@ function getWorldMouse() {
 
 function draw() {
 	update();
-
-	if (mouseIsPressed && mouseButton === LEFT) {
-		document.getElementById('rightClickContext').classList.remove('open');
-	}
 
 	if (mouseIsPressed && mouseButton === LEFT) {
 		if (!wasPressed) {
