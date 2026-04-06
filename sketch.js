@@ -22,6 +22,7 @@ let overlayOpacity = 1;
 let changeListeners = [];
 let currentLayerSettings;
 let poppins;
+let debugGrid = false;
 let layers = {
 	"World": {
 		icon: "world",
@@ -666,7 +667,7 @@ function draw() {
 	const tileSize = Math.round(512 * 2 ** lod)
 	const borderLod = (lod + 2) > 10 ? 10 : lod + 2;
 
-	if (borderLod !== lod && layers["World"].visible) {
+	if (borderLod !== lod && layers["World"].visible && !debugGrid) {
 		push();
 		opacity(layers["World"].settings.Opacity.value ** 2)
 		const borderTileSize = 512 * 2 ** borderLod;
@@ -931,8 +932,8 @@ function tileKey(tileX, tileY, lod, dim) {
 	return (BigInt(tileX) & 0x1FFFFFFn) << 35n | (BigInt(tileY) & 0x1FFFFFFn) << 10n | (BigInt(lod) & 0x7Fn) << 3n | (BigInt(dim) & 0x7n);
 }
 
-async function loadTile(lod, tx, ty, allowLoading = true) {
-	const key = tileKey(tx, ty, lod, currentDimension);
+async function loadTile(thisLod, tx, ty, allowLoading = true) {
+	const key = tileKey(tx, ty, thisLod, currentDimension);
 
 	if ((tileCache[key] && (tileCache[key].loaded || tileCache[key].failed || tileCache[key].loading)) || !allowLoading || inFlightRequests.has(key)) return;
 
@@ -948,15 +949,15 @@ async function loadTile(lod, tx, ty, allowLoading = true) {
 		const fetchPromises = [];
 
 		if (layers["World"].visible) {
-			fetchPromises.push(fetch(`/tiles/base/${lod}/${currentDimension}/${sx}/${sy}/t.${tx}.${ty}.webp`, { signal: controller.signal }));
+			fetchPromises.push(fetch(`/tiles/base/${thisLod}/${currentDimension}/${sx}/${sy}/t.${tx}.${ty}.webp`, { signal: controller.signal }));
 		} else { fetchPromises.push(Promise.resolve(null)); }
 
 		if (layers["Obsidian"].visible) {
-			fetchPromises.push(fetch(`/tiles/overlay/${lod}/${currentDimension}/${sx}/${sy}/t.${tx}.${ty}.webp`, { signal: controller.signal }));
+			fetchPromises.push(fetch(`/tiles/overlay/${thisLod}/${currentDimension}/${sx}/${sy}/t.${tx}.${ty}.webp`, { signal: controller.signal }));
 		} else { fetchPromises.push(Promise.resolve(null)); }
 
 		if (layers["New Chunks"].visible) {
-			fetchPromises.push(fetch(`/tiles/newchunks/${lod}/${currentDimension}/${sx}/${sy}/t.${tx}.${ty}.webp`, { signal: controller.signal }));
+			fetchPromises.push(fetch(`/tiles/newchunks/${thisLod}/${currentDimension}/${sx}/${sy}/t.${tx}.${ty}.webp`, { signal: controller.signal }));
 		} else { fetchPromises.push(Promise.resolve(null)); }
 
 		const [resBase, resOverlay, resNewChunks] = await Promise.all(fetchPromises);
@@ -986,6 +987,11 @@ async function loadTile(lod, tx, ty, allowLoading = true) {
 			loading: false,
 			lastAccessed: Date.now()
 		};
+
+		if (thisLod < lod) {
+			console.log(lod, thisLod);
+			// inFlightRequests.delete(key);
+		}
 
 	} catch (e) {
 		if (e.name === 'AbortError') return;
@@ -1020,6 +1026,25 @@ function drawTile(tx, ty, lod, x, y, size, loadIfUncached = true, loadingForLowQ
 			activeTileKeys.add(key);
 			loadTile(lod, tx, ty, loadIfUncached);
 		}
+	}
+
+	if (debugGrid) {
+		activeTileKeys.add(key);
+		if (tile) tile.lastAccessed = Date.now();
+
+		if (layer === 'base') {
+			push();
+			noFill();
+			tile.loading ? stroke(255, 255, 0) : stroke(255, 0, 0);
+			strokeWeight(1 / camera.zoom);
+			rect(x, y, size, size);
+			noStroke();
+			fill('red');
+			textSize(12 / camera.zoom);
+			text(`${tx}, ${ty}\nLOD: ${lod}`, x + (10/camera.zoom), y + (20/camera.zoom));
+			pop();
+		}
+		return;
 	}
 
 	if (tile && tile.loaded) {
@@ -1127,6 +1152,10 @@ window.addEventListener('keydown', (e) => {
 		e.preventDefault();
 		searchInput.focus();
 		searchInput.select();
+	}
+	if (e.shiftKey && e.key.toLowerCase() === 'g') {
+		debugGrid = !debugGrid;
+		console.log("debug grid:", debugGrid ? "ON" : "OFF");
 	}
 });
 

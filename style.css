@@ -185,7 +185,7 @@ ui {
   width: 300px;
   height: auto;
   overflow-y: scroll;
-  max-height: calc(100vh - 200px);
+  max-height: 50vh;
   padding: 8px 12px 12px 12px;
   align-items: baseline;
   flex-direction: column;
