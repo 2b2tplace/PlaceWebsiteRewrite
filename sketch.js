@@ -1,5 +1,6 @@
 let originalMouseX, originalMouseY, originalCameraX, originalCameraY;
 let lastCamX = 0, lastCamY = 0;
+let lastDisplayX = null, lastDisplayY = null;
 let smoothCamVel = 0;
 let lod;
 let intendedCamZoom = 0.004;
@@ -141,7 +142,7 @@ function preload() {
 }
 
 function setup() {
-	createCanvas(windowWidth, windowHeight, P2D);
+	createCanvas(windowWidth, windowHeight, WEBGL);
 	textFont(poppins);
 	camera.on();
 	// load prev camera view
@@ -835,16 +836,19 @@ function draw() {
 	}
 
 	// display coordinates based on dimension
-	if (currentDimension == 0 || currentDimension == 2) {
-		let displayX = Math.round(mouse.x);
-		let displayY = Math.round(mouse.y);
-		coordinateText.innerText = `${displayX} ${displayY}`;
-		coordinateTextNether.innerText = `${Math.round(displayX / 8)} ${Math.round(displayY / 8)}`;
-	} else {
-		let displayX = Math.round(mouse.x);
-		let displayY = Math.round(mouse.y);
-		coordinateText.innerText = `${displayX * 8} ${displayY * 8}`;
-		coordinateTextNether.innerText = `${displayX} ${displayY}`;
+	let displayX = Math.round(mouse.x);
+	let displayY = Math.round(mouse.y);
+
+	if (displayX !== lastDisplayX || displayY !== lastDisplayY) {
+		if (currentDimension == 0 || currentDimension == 2) {
+			coordinateText.innerText = `${displayX} ${displayY}`;
+			coordinateTextNether.innerText = `${Math.round(displayX / 8)} ${Math.round(displayY / 8)}`;
+		} else {
+			coordinateText.innerText = `${displayX * 8} ${displayY * 8}`;
+			coordinateTextNether.innerText = `${displayX} ${displayY}`;
+		}
+		lastDisplayX = displayX;
+		lastDisplayY = displayY;
 	}
 
 	if (currentDimension == 2) {
@@ -940,7 +944,7 @@ function windowResized() {
 }
 
 function tileKey(tileX, tileY, lod, dim) {
-	return (BigInt(tileX) & 0x1FFFFFFn) << 35n | (BigInt(tileY) & 0x1FFFFFFn) << 10n | (BigInt(lod) & 0x7Fn) << 3n | (BigInt(dim) & 0x7n);
+	return `${tileX}_${tileY}_${lod}_${dim}`;
 }
 
 async function loadTile(lod, tx, ty, allowLoading = true) {
@@ -992,7 +996,7 @@ async function loadTile(lod, tx, ty, allowLoading = true) {
 			imgNewChunks: bitmapNewChunks,
 			loaded: true,
 			loading: false,
-			timestamp: Date.now()
+			lastAccessed: Date.now()
 		};
 
 	} catch (e) {
@@ -1045,6 +1049,8 @@ function drawTile(tx, ty, lod, x, y, size, loadIfUncached = true, loadingForLowQ
 			return;
 		}
 	}
+
+	if (tile) tile.lastAccessed = Date.now();
 
 	if (tile && tile.failed) return;
 
@@ -1105,10 +1111,15 @@ function abortTile(key) {
 
 function pruneCache() {
 	const now = Date.now();
-	const expiration = 180000;
+	const expiration = 60000;
 
 	for (let key in tileCache) {
-		if (!tileCache[key].loading && (now - tileCache[key].timestamp > expiration)) {
+		if (!activeTileKeys.has(key) && !tileCache[key].loading && (now - tileCache[key].lastAccessed > expiration)) {
+
+			if (tileCache[key].imgBase) tileCache[key].imgBase.close();
+			if (tileCache[key].imgOverlay) tileCache[key].imgOverlay.close();
+			if (tileCache[key].imgNewChunks) tileCache[key].imgNewChunks.close();
+
 			delete tileCache[key];
 		}
 	}
