@@ -387,33 +387,32 @@ function setup() {
 				}
 			});
 
-			const baseURL = `${window.location.origin}/@${encodeURL()}`;
-			const finalURL = (copyLinkSettings["Keep Existing URL Parameters"] || copyLinkSettings["Include All"])
-				? baseURL + window.location.search
-				: baseURL;
-
-			document.getElementById('copyLinkText').value = finalURL;
+			document.getElementById('copyLinkText').value = createURL();
 
 			document
 				.getElementById('copyLinkButton')
-				.onclick = () => copyToClipboard();
+				.onclick = () => copyToClipboard(createURL());
 		});
 
 		copyLinkBody.appendChild(item);
 	});
 }
 
-async function copyToClipboard() {
+function createURL() {
 	const baseURL = `${window.location.origin}/@${encodeURL()}`;
 	const finalURL = (copyLinkSettings["Keep Existing URL Parameters"] || copyLinkSettings["Include All"])
 		? baseURL + window.location.search
 		: baseURL;
+	return finalURL;
+}
+
+async function copyToClipboard(text) {
 	try {
 		if (navigator.clipboard && window.isSecureContext) {
-			await navigator.clipboard.writeText(finalURL);
+			await navigator.clipboard.writeText(text);
 		} else {
 			const textarea = document.createElement("textarea");
-			textarea.value = finalURL;
+			textarea.value = text;
 			textarea.style.position = "fixed";
 			textarea.style.left = "-9999px";
 			document.body.appendChild(textarea);
@@ -424,9 +423,15 @@ async function copyToClipboard() {
 
 			document.body.removeChild(textarea);
 		}
-		console.log("Copied!");
+		const element = document.getElementById('copyPopup');
+		element.classList.add("animate");
+		setTimeout(() => {
+			element.classList.remove("animate");
+		}, 1000);
+		return true;
 	} catch (err) {
 		console.error("Copy failed:", err);
+		return false;
 	}
 }
 
@@ -666,7 +671,7 @@ function draw() {
 		copyLink.addEventListener("click", () => {
 			document.getElementById('copyLinkText').value = `${window.location.origin}/@${encodeURL()}`;
 			document.getElementById('copyLinkButton').onclick = () => {
-				copyToClipboard();
+				copyToClipboard(createURL());
 			}
 
 			const copyLinkScreen = document.getElementById('copyLinkScreen');
@@ -1107,10 +1112,10 @@ function encodeURL({ lat = Math.round(camera.x), lng = Math.round(camera.y), cam
 
 	let featureMask = 0;
 	if (copyLinkSettings["Include All"]) {
-		featureMask |=1;
-		featureMask |=2;
-		featureMask |=4;
-	} 
+		featureMask |= 1;
+		featureMask |= 2;
+		featureMask |= 4;
+	}
 	if (copyLinkSettings["Layer Settings"]) featureMask |= 1;
 	if (copyLinkSettings["Current Search"]) featureMask |= 2;
 	if (copyLinkSettings["Your Markers"]) featureMask |= 4;
