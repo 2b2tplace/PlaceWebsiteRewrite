@@ -880,7 +880,7 @@ function mouseWheel(event) {
 
 function update() {
 	const ZOOM_SMOOTHING = 5;
-	const LOG_ZOOM_MIN = -6.5;
+	const LOG_ZOOM_MIN = -7;
 	const LOG_ZOOM_MAX = 4;
 	const ROUND_ZOOM = 100000;
 	const ROUND_VEL = 10000;
@@ -1591,3 +1591,30 @@ measureRefreshRate().then(fps => {
 	});
 	frameRate(snapped);
 });
+
+function encodeTileRequest(tlX, tlZ, brX, brZ, zoom) {
+    const buffer = [];
+
+    const zigzag = (n) => (n << 1) ^ (n >> 31);
+
+    const pushVarint = (value) => {
+        let uValue = zigzag(value) >>> 0;
+        while (uValue >= 0x80) {
+            buffer.push((uValue & 0x7F) | 0x80);
+            uValue >>>= 7;
+        }
+        buffer.push(uValue);
+    };
+
+    pushVarint(tlX);
+    pushVarint(tlZ);
+    pushVarint(brX);
+    pushVarint(brZ);
+
+    buffer.push(zoom & 0xFF);
+
+    return new Uint8Array(buffer);
+}
+
+const payload = encodeTileRequest(-105, 250, -90, 260, 10);
+console.log(payload)
