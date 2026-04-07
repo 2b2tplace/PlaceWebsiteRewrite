@@ -230,7 +230,6 @@ function setup() {
 		camera.x = 0;
 		camera.y = 0;
 	}
-	frameRate(120);
 
 	// element setup
 	searchInput = document.getElementById('search');
@@ -1546,3 +1545,49 @@ function base64UrlDecode(str) {
 	}
 	return bytes;
 }
+
+function measureRefreshRate(duration = 1000) {
+	return new Promise(resolve => {
+		let frames = 0;
+		let startTime = null;
+
+		function frame(time) {
+			if (!startTime) startTime = time;
+			frames++;
+
+			if (time - startTime < duration) {
+				requestAnimationFrame(frame);
+			} else {
+				const fps = frames / ((time - startTime) / 1000);
+				resolve(fps);
+			}
+		}
+
+		requestAnimationFrame(frame);
+	});
+}
+
+measureRefreshRate().then(fps => {
+	const COMMON_REFRESH_RATES = [
+		30,
+		50,
+		60,
+		72,
+		75,
+		90,
+		100,
+		120,
+		144,
+		165,
+		180,
+		200,
+		240,
+		360
+	];
+	const snapped = COMMON_REFRESH_RATES.reduce((closest, rate) => {
+		return Math.abs(rate - fps) < Math.abs(closest - fps)
+			? rate
+			: closest;
+	});
+	frameRate(snapped);
+});
