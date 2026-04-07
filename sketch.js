@@ -26,27 +26,27 @@ let debugGrid = false;
 let layers = {
 	"World": {
 		icon: "world",
-		visible: true,
+		visible: true, defaultVisible: true,
 		type: 'base',
 		settings: {
-			Opacity: { icon: "opacity", type: "slider", value: 1 }
+			Opacity: { icon: "opacity", type: "slider", value: 1, defaultValue: 1 }
 		}
 	},
 	"Obsidian": {
 		icon: "obsidian",
-		visible: true,
+		visible: true, defaultVisible: true,
 		type: 'overlay',
 		settings: {
-			Opacity: { icon: "opacity", type: "slider", value: 1 },
-			Parallax: { icon: "parallax", type: "toggle", value: true }
+			Opacity: { icon: "opacity", type: "slider", value: 1, defaultValue: 1 },
+			Parallax: { icon: "parallax", type: "toggle", value: true, defaultValue: true }
 		}
 	},
 	"New Chunks": {
 		icon: "chunkhighlights",
-		visible: false,
+		visible: false, defaultVisible: false,
 		type: 'newchunks',
 		settings: {
-			Opacity: { icon: "opacity", type: "slider", value: 0.5 }
+			Opacity: { icon: "opacity", type: "slider", value: 0.5, defaultValue: 0.5 }
 		}
 	}
 }
@@ -67,6 +67,12 @@ let renderSuggestions;
 let cachedClusters = [];
 let lastClusterCamX, lastClusterCamY, lastClusterZoom, lastClusterDim;
 const CLUSTER_RADIUS_PIXELS = 60;
+
+let tempMarkers = [];
+let activeHoveredMarker = null;
+let selectedMarkerColor = 'Red';
+const markerColors = ['Red', 'Orange', 'Yellow', 'Green', 'Blue', 'Purple', 'Pink'];
+let markerIcons = {};
 
 function getParsedInput(val) {
 	const lowerVal = val.toLowerCase();
@@ -137,7 +143,7 @@ let copyLinkSettings = {
 	"Include All": false,
 	"Layer Settings": false,
 	"Current Search": false,
-	"Your Markers": false,
+	"Temporary Markers": false,
 	"Keep Existing URL Parameters": false
 }
 
@@ -150,6 +156,11 @@ function setup() {
 	textFont(poppins);
 	imageMode(CORNER);
 
+	markerColors.forEach(col => {
+		markerIcons[col] = loadImage(`/icon/worldPin${col}.png`);
+	});
+
+
 	const copycoords = document.getElementById('copycoordinates');
 	copycoords.addEventListener("click", () => {
 		navigator.clipboard.writeText(`${rightClickCoords.x}, ${rightClickCoords.z}`);
@@ -158,6 +169,41 @@ function setup() {
 
 	const copyLink = document.getElementById('copylink');
 	copyLink.addEventListener("click", () => {
+		const layersChanged = hasLayerSettingsChanged();
+		const searchVal = searchInput.value.trim();
+		const parsedSearch = getParsedInput(searchVal);
+		const searchYieldsResults = atlasLocations.length > 0 || parsedSearch !== null;
+
+		const layerItem = items["Layer Settings"];
+		if (!layersChanged) {
+			copyLinkSettings["Layer Settings"] = false;
+			layerItem.item.classList.add('disabled-by-system');
+			changeIcon(layerItem.icon, 'unchecked');
+		} else {
+			layerItem.item.classList.remove('disabled-by-system');
+			changeIcon(layerItem.icon, copyLinkSettings["Layer Settings"] ? 'checked' : 'unchecked');
+		}
+
+		const searchItem = items["Current Search"];
+		if (!searchVal || !searchYieldsResults) {
+			copyLinkSettings["Current Search"] = false;
+			searchItem.item.classList.add('disabled-by-system');
+			changeIcon(searchItem.icon, 'unchecked');
+		} else {
+			searchItem.item.classList.remove('disabled-by-system');
+			changeIcon(searchItem.icon, copyLinkSettings["Current Search"] ? 'checked' : 'unchecked');
+		}
+
+		const markerItem = items["Temporary Markers"];
+		if (tempMarkers.length < 1) {
+			copyLinkSettings["Temporary Markers"] = false;
+			markerItem.item.classList.add('disabled-by-system');
+			changeIcon(markerItem.icon, 'unchecked');
+		} else {
+			markerItem.item.classList.remove('disabled-by-system');
+			changeIcon(markerItem.icon, copyLinkSettings["Temporary Markers"] ? 'checked' : 'unchecked');
+		}
+
 		document.getElementById('copyLinkText').value = createURL();
 
 		document.getElementById('copyLinkButton').onclick = () => {
@@ -166,6 +212,123 @@ function setup() {
 
 		document.getElementById('copyLinkScreen').classList.add('open');
 		document.getElementById('rightClickContext').classList.remove('open');
+	});
+
+	document.querySelectorAll('.color-swatch').forEach(swatch => {
+		swatch.addEventListener('click', (e) => {
+			document.querySelectorAll('.color-swatch').forEach(s => s.style.borderColor = 'transparent');
+			e.target.style.borderColor = 'white';
+			selectedMarkerColor = e.target.getAttribute('data-color');
+		});
+	});
+
+	const placemarker = document.getElementById('placemarker');
+	placemarker.addEventListener("click", () => {
+		document.getElementById('rightClickContext').classList.remove('open');
+		document.getElementById('markerDialogueScreen').classList.add('open');
+		document.getElementById('markerNameInput').value = '';
+		const markerNameInput = document.getElementById('markerNameInput');
+		const ALLOWED_ALPHABET = "abcdefghijklmnopqrstuvwxyz0123456789 ,-:";
+		markerNameInput.addEventListener('input', (e) => {
+			const start = e.target.selectionStart;
+			const end = e.target.selectionEnd;
+			let val = e.target.value.toLowerCase();
+			let filtered = "";
+			for (let char of val) {
+				if (ALLOWED_ALPHABET.includes(char)) {
+					filtered += char;
+				}
+			}
+			e.target.value = filtered;
+			e.target.setSelectionRange(start, end);
+		});
+		document.getElementById('markerNameInput').focus();
+
+		let markerClose = createIcon('close');
+		markerClose.addEventListener('click', () => {
+			document.getElementById('markerDialogueScreen').classList.remove('open');
+		})
+		document.getElementById('markerTitle').innerHTML = 'Place Marker';
+		document.getElementById('markerTitle').appendChild(markerClose);
+
+		const markerColours = document.getElementById('markerColours');
+		markerColours.innerHTML = '';
+		markerColors.forEach(colour => {
+			let option = createIcon(`worldPin${colour}`);
+			option.classList.add('item');
+			if (selectedMarkerColor == colour) option.classList.add('selected');
+			option.addEventListener('click', () => {
+				selectedMarkerColor = colour;
+				Array.from(markerColours.children).forEach(child => {
+					child.classList.remove('selected');
+				});
+				option.classList.add('selected');
+			});
+
+			markerColours.appendChild(option);
+		});
+
+		document.getElementById('saveMarker').addEventListener("click", () => {
+			const mName = document.getElementById('markerNameInput').value.trim() || 'Custom Pin';
+			tempMarkers.push({
+				x: rightClickCoords.x,
+				z: rightClickCoords.z,
+				name: mName,
+				color: selectedMarkerColor
+			});
+			document.getElementById('markerDialogueScreen').classList.remove('open');
+		});
+	});
+
+	const removemarker = document.getElementById('removemarker');
+	removemarker.addEventListener("click", () => {
+		if (activeHoveredMarker) {
+			tempMarkers = tempMarkers.filter(m => m !== activeHoveredMarker);
+		}
+		document.getElementById('rightClickContext').classList.remove('open');
+	});
+
+	window.addEventListener('mousedown', (e) => {
+		const context = document.getElementById('rightClickContext');
+		if (!context.contains(e.target)) {
+			context.classList.remove('open');
+		}
+	});
+
+	document.addEventListener('contextmenu', event => {
+		if (event.target.tagName.toLowerCase() === 'canvas') {
+			event.preventDefault();
+
+			const wMouse = getWorldMouse();
+			rightClickCoords.x = Math.round(wMouse.x);
+			rightClickCoords.z = Math.round(wMouse.y);
+
+			let scaleAmount = 1 / camera.zoom;
+			let iconSize = 32 * scaleAmount;
+
+			activeHoveredMarker = null;
+			for (let i = tempMarkers.length - 1; i >= 0; i--) {
+				let m = tempMarkers[i];
+				if (wMouse.x >= m.x - iconSize / 2 && wMouse.x <= m.x + iconSize / 2 &&
+					wMouse.y >= m.z - iconSize && wMouse.y <= m.z) {
+					activeHoveredMarker = m;
+					break;
+				}
+			}
+
+			if (activeHoveredMarker) {
+				document.getElementById('placemarker').style.display = 'none';
+				document.getElementById('removemarker').style.display = '';
+			} else {
+				document.getElementById('placemarker').style.display = '';
+				document.getElementById('removemarker').style.display = 'none';
+			}
+
+			const context = document.getElementById('rightClickContext');
+			context.classList.add('open');
+			context.style.left = event.clientX + 'px';
+			context.style.top = event.clientY + 'px';
+		}
 	});
 
 	window.addEventListener('mousedown', (e) => {
@@ -224,6 +387,10 @@ function setup() {
 					}
 				}
 			}
+
+			if (details.search) {
+				document.getElementById('search').value = details.search;
+			}
 		}
 	} else {
 		camera.zoom = intendedCamZoom;
@@ -235,7 +402,7 @@ function setup() {
 	searchInput = document.getElementById('search');
 	searchPanel = document.getElementById('searchPanel');
 
-	pinIcon = loadImage('/icon/pin.png');
+	pinIcon = loadImage('/icon/worldPin.png');
 
 	renderSuggestions = () => {
 		const parsed = getParsedInput(searchInput.value);
@@ -495,18 +662,26 @@ function setup() {
 		items[settingName] = { item, icon };
 
 		item.addEventListener('click', () => {
-			if (item.classList.contains('disabled')) return;
+			if (item.classList.contains('disabled') || item.classList.contains('disabled-by-system')) return;
 			copyLinkSettings[settingName] = !copyLinkSettings[settingName];
 			const includeAll = copyLinkSettings["Include All"];
 
 			Object.entries(items).forEach(([name, refs]) => {
-				const { item, icon } = refs;
+				const { item: refItem, icon: refIcon } = refs;
 				if (includeAll && name !== "Include All") {
-					changeIcon(icon, 'checked');
-					item.classList.add('disabled');
+					if (refItem.classList.contains('disabled-by-system')) {
+						changeIcon(refIcon, 'unchecked');
+					} else {
+						changeIcon(refIcon, 'checked');
+						refItem.classList.add('disabled');
+					}
 				} else {
-					changeIcon(icon, copyLinkSettings[name] ? 'checked' : 'unchecked');
-					item.classList.remove('disabled');
+					if (refItem.classList.contains('disabled-by-system')) {
+						changeIcon(refIcon, 'unchecked');
+					} else {
+						changeIcon(refIcon, copyLinkSettings[name] ? 'checked' : 'unchecked');
+						refItem.classList.remove('disabled');
+					}
 				}
 			});
 			document.getElementById('copyLinkText').value = createURL();
@@ -514,6 +689,19 @@ function setup() {
 		});
 		copyLinkBody.appendChild(item);
 	});
+}
+
+function hasLayerSettingsChanged() {
+	for (const name in layers) {
+		const layer = layers[name];
+		if (layer.visible !== layer.defaultVisible) return true;
+		if (layer.settings) {
+			for (const sName in layer.settings) {
+				if (layer.settings[sName].value !== layer.settings[sName].defaultValue) return true;
+			}
+		}
+	}
+	return false;
 }
 
 function createURL() {
@@ -563,51 +751,77 @@ function configureLayerSettings(layerName, layer) {
 	setting.className = "setting";
 
 	let reset = createIcon('reset');
-	reset.style.opacity = 0.5;
+	reset.addEventListener("click", () => {
+		if (layer.visible !== layer.defaultVisible) {
+			layer.visible = layer.defaultVisible;
+		}
+	});
+
 	let icon = createIcon('eye');
 	let name = 'Visibility';
 	let toggle = createIcon(layer.visible ? 'on' : 'off');
 	toggle.classList.add('right');
 	toggle.addEventListener("click", (e) => {
-		layer.visible = !layer.visible
-		changeIcon(e.target, layer.visible ? 'on' : 'off')
+		layer.visible = !layer.visible;
 	});
+
 	updateOnChange(() => layer.visible, (val) => {
 		changeIcon(toggle, val ? 'on' : 'off');
+		reset.style.opacity = (val !== layer.defaultVisible) ? 1 : 0.5;
+		reset.style.cursor = (val !== layer.defaultVisible) ? 'pointer' : 'default';
 	});
+	reset.style.opacity = (layer.visible !== layer.defaultVisible) ? 1 : 0.5;
+	reset.style.cursor = (layer.visible !== layer.defaultVisible) ? 'pointer' : 'default';
 
 	setting.append(reset, icon, name, toggle);
 	layersettings.appendChild(setting);
 
 	for (const item in layer.settings) {
-		setting = document.createElement("div");
-		setting.className = "setting";
+		let layerSettingDiv = document.createElement("div");
+		layerSettingDiv.className = "setting";
 
-		reset = createIcon('reset');
-		reset.style.opacity = 0.5;
-		icon = createIcon(layer.settings[item].icon);
-		name = item;
-		setting.append(reset, icon, name);
+		const settingObj = layer.settings[item];
 
-		if (layer.settings[item].type == 'toggle') {
-			let settingtoggle = createIcon(layer.settings[item].value ? 'on' : 'off');
+		let setReset = createIcon('reset');
+		setReset.addEventListener("click", () => {
+			if (settingObj.value !== settingObj.defaultValue) {
+				settingObj.value = settingObj.defaultValue;
+			}
+		});
+
+		let setIcon = createIcon(settingObj.icon);
+		let setName = item;
+		layerSettingDiv.append(setReset, setIcon, setName);
+
+		if (settingObj.type == 'toggle') {
+			let settingtoggle = createIcon(settingObj.value ? 'on' : 'off');
 			settingtoggle.classList.add('right');
 			settingtoggle.addEventListener("click", (e) => {
-				layer.settings[item].value = !layer.settings[item].value
-				changeIcon(e.target, layer.settings[item].value ? 'on' : 'off')
+				settingObj.value = !settingObj.value;
 			});
-			updateOnChange(() => layer.settings[item].value, (val) => {
+			updateOnChange(() => settingObj.value, (val) => {
 				changeIcon(settingtoggle, val ? 'on' : 'off');
+				setReset.style.opacity = (val !== settingObj.defaultValue) ? 1 : 0.5;
+				setReset.style.cursor = (val !== settingObj.defaultValue) ? 'pointer' : 'default';
 			});
-			setting.appendChild(settingtoggle);
-		} else if (layer.settings[item].type == 'slider') {
+			setReset.style.opacity = (settingObj.value !== settingObj.defaultValue) ? 1 : 0.5;
+			setReset.style.cursor = (settingObj.value !== settingObj.defaultValue) ? 'pointer' : 'default';
+			layerSettingDiv.appendChild(settingtoggle);
+		} else if (settingObj.type == 'slider') {
 			let settingslider = document.createElement("img");
 			settingslider.src = '/icon/slider.png';
 			settingslider.className = 'slider'
-			setting.appendChild(settingslider);
-			setupSlider(settingslider, layer.settings[item], 0, 1);
+			layerSettingDiv.appendChild(settingslider);
+			setupSlider(settingslider, settingObj, 0, 1);
+
+			updateOnChange(() => settingObj.value, (val) => {
+				setReset.style.opacity = (val !== settingObj.defaultValue) ? 1 : 0.5;
+				setReset.style.cursor = (val !== settingObj.defaultValue) ? 'pointer' : 'default';
+			});
+			setReset.style.opacity = (settingObj.value !== settingObj.defaultValue) ? 1 : 0.5;
+			setReset.style.cursor = (settingObj.value !== settingObj.defaultValue) ? 'pointer' : 'default';
 		}
-		layersettings.appendChild(setting);
+		layersettings.appendChild(layerSettingDiv);
 	}
 }
 
@@ -766,18 +980,11 @@ function draw() {
 	}
 
 	if (atlasLocations.length > 0) {
-		const moved = abs(camera.x - lastClusterCamX) > (1 / camera.zoom) ||
-			abs(camera.y - lastClusterCamY) > (1 / camera.zoom) ||
-			camera.zoom !== lastClusterZoom ||
-			currentDimension !== lastClusterDim;
-
-		if (moved) {
-			cachedClusters = getClusters();
-			lastClusterCamX = camera.x;
-			lastClusterCamY = camera.y;
-			lastClusterZoom = camera.zoom;
-			lastClusterDim = currentDimension;
-		}
+		cachedClusters = getClusters();
+		lastClusterCamX = camera.x;
+		lastClusterCamY = camera.y;
+		lastClusterZoom = camera.zoom;
+		lastClusterDim = currentDimension;
 
 		push();
 		const scaleAmount = 1 / camera.zoom;
@@ -786,7 +993,7 @@ function draw() {
 			if (cluster.count > 1) {
 				fill(40, 150, 255, 200);
 				stroke(255);
-				strokeWeight(2 * scaleAmount);
+				strokeWeight(4 * scaleAmount);
 				let circleSize = (25 + Math.min(cluster.count, 20)) * scaleAmount;
 				ellipse(cluster.x, cluster.z, circleSize);
 
@@ -806,7 +1013,7 @@ function draw() {
 				if (camera.zoom > 0.001) {
 					fill(255);
 					stroke(0);
-					strokeWeight(2 * scaleAmount);
+					strokeWeight(4 * scaleAmount);
 					textAlign(CENTER, BOTTOM);
 					textSize(18 * scaleAmount);
 					text(loc.name, loc.x, loc.z - iconSize - (4 * scaleAmount));
@@ -815,6 +1022,24 @@ function draw() {
 		}
 		pop();
 	}
+
+	push()
+	const scaleAmount = 1 / camera.zoom;
+	tempMarkers.forEach(marker => {
+		let iconSize = 32 * scaleAmount;
+		let img = markerIcons[marker.color];
+		image(img, marker.x - iconSize / 2 + 0.5, marker.z - iconSize + 0.5, iconSize, iconSize);
+
+		if (camera.zoom > 0.001) {
+			fill(255);
+			stroke(marker.color || '#ff0000');
+			strokeWeight(4 * scaleAmount);
+			textAlign(CENTER, BOTTOM);
+			textSize(18 * scaleAmount);
+			text(marker.name || 'Custom Pin', marker.x + 0.5, marker.z + 0.5 - iconSize - (4 * scaleAmount));
+		}
+	});
+	pop();
 
 	pop();
 
@@ -989,7 +1214,6 @@ async function loadTile(thisLod, tx, ty, allowLoading = true) {
 
 		if (thisLod < lod) {
 			console.log(lod, thisLod);
-			// inFlightRequests.delete(key);
 		}
 
 	} catch (e) {
@@ -1369,13 +1593,19 @@ function encodeURL({ lat = Math.round(camera.x), lng = Math.round(camera.y), cam
 
 	let featureMask = 0;
 	if (copyLinkSettings["Include All"]) {
-		featureMask |= 1;
-		featureMask |= 2;
+		if (hasLayerSettingsChanged()) featureMask |= 1;
+
+		const searchVal = document.getElementById('search').value.trim();
+		if (searchVal && (atlasLocations.length > 0 || getParsedInput(searchVal) !== null)) {
+			featureMask |= 2;
+		}
+
 		featureMask |= 4;
+	} else {
+		if (copyLinkSettings["Layer Settings"] && hasLayerSettingsChanged()) featureMask |= 1;
+		if (copyLinkSettings["Current Search"]) featureMask |= 2;
+		if (copyLinkSettings["Temporary Markers"]) featureMask |= 4;
 	}
-	if (copyLinkSettings["Layer Settings"]) featureMask |= 1;
-	if (copyLinkSettings["Current Search"]) featureMask |= 2;
-	if (copyLinkSettings["Your Markers"]) featureMask |= 4;
 
 	if (featureMask > 0) {
 		stream.writeVarint(featureMask);
@@ -1383,21 +1613,49 @@ function encodeURL({ lat = Math.round(camera.x), lng = Math.round(camera.y), cam
 		if (featureMask & 1) {
 			for (const name of Object.keys(layers)) {
 				const layer = layers[name];
-				stream.writeBits(layer.visible ? 1 : 0, 1);
+				const visChanged = layer.visible !== layer.defaultVisible;
+				stream.writeBits(visChanged ? 1 : 0, 1);
+				if (visChanged) stream.writeBits(layer.visible ? 1 : 0, 1);
+
 				if (layer.settings) {
 					for (const sName of Object.keys(layer.settings)) {
 						const setting = layer.settings[sName];
-						if (setting.type === 'toggle') {
-							stream.writeBits(setting.value ? 1 : 0, 1);
-						} else if (setting.type === 'slider') {
-							const val = Math.max(0, Math.min(1, setting.value));
-							stream.writeBits(Math.round(val * 255), 8);
+						const setChanged = setting.value !== setting.defaultValue;
+						stream.writeBits(setChanged ? 1 : 0, 1);
+						if (setChanged) {
+							if (setting.type === 'toggle') {
+								stream.writeBits(setting.value ? 1 : 0, 1);
+							} else if (setting.type === 'slider') {
+								const val = Math.max(0, Math.min(1, setting.value));
+								stream.writeBits(Math.round(val * 255), 8);
+							}
 						}
 					}
 				}
 			}
 		}
-		// gonna add current search and your markers later
+		if (featureMask & 2) {
+			let saveSearch = document.getElementById('search').value.trim();
+			const parsed = getParsedInput(saveSearch);
+			if (atlasLocations.length === 0 && parsed !== null) {
+				if (parsed.dim) saveSearch = `${parsed.dim}: ${parsed.x}, ${parsed.z}`;
+				else saveSearch = `${parsed.x}, ${parsed.z}`;
+			}
+			stream.writeString(saveSearch);
+		}
+		if (featureMask & 4) {
+			stream.writeVarint(tempMarkers.length);
+			tempMarkers.forEach(m => {
+				stream.writeVarint(zigzag(Math.round(m.x)));
+				stream.writeVarint(zigzag(Math.round(m.z)));
+
+				let colorIdx = markerColors.indexOf(m.color);
+				if (colorIdx === -1) colorIdx = 0;
+				stream.writeBits(colorIdx, 3);
+
+				stream.writeString(m.name || "Pin");
+			});
+		}
 	}
 
 	return base64UrlEncode(stream.getUint8Array());
@@ -1415,31 +1673,59 @@ function decodeURL(base64String) {
 	const currentDimension = stream.readBits(2);
 
 	let decodedLayers = null;
+	let search = null;
 
 	if (stream.hasMore()) {
 		const featureMask = stream.readVarint();
+
 		if (featureMask & 1) {
 			decodedLayers = {};
 			for (const name of Object.keys(layers)) {
-				const visible = stream.readBits(1) === 1;
+				let visible = layers[name].defaultVisible;
+				const visChanged = stream.readBits(1) === 1;
+				if (visChanged) visible = stream.readBits(1) === 1;
+
 				const settings = {};
 				if (layers[name].settings) {
 					for (const sName of Object.keys(layers[name].settings)) {
 						const type = layers[name].settings[sName].type;
-						if (type === 'toggle') {
-							settings[sName] = stream.readBits(1) === 1;
-						} else if (type === 'slider') {
-							settings[sName] = stream.readBits(8) / 255;
+						let val = layers[name].settings[sName].defaultValue;
+
+						const setChanged = stream.readBits(1) === 1;
+						if (setChanged) {
+							if (type === 'toggle') {
+								val = stream.readBits(1) === 1;
+							} else if (type === 'slider') {
+								val = stream.readBits(8) / 255;
+							}
 						}
+						settings[sName] = val;
 					}
 				}
 				decodedLayers[name] = { visible, settings };
 			}
 		}
 
-		// gonna add current search and your markers later
-		// if (featureMask & 2) {
-		// if (featureMask & 4) {
+		if (featureMask & 2) {
+			search = stream.readString();
+		}
+
+		if (featureMask & 4) {
+			const count = stream.readVarint();
+			for (let i = 0; i < count; i++) {
+				const mx = unzigzag(stream.readVarint());
+				const mz = unzigzag(stream.readVarint());
+				const colorIdx = stream.readBits(3);
+				const mName = stream.readString();
+
+				tempMarkers.push({
+					x: mx,
+					z: mz,
+					color: markerColors[colorIdx] || 'Red',
+					name: mName
+				});
+			}
+		}
 	}
 
 	return {
@@ -1447,7 +1733,8 @@ function decodeURL(base64String) {
 		lng,
 		camzoom: zoomRaw / 10000,
 		currentDimension,
-		layers: decodedLayers
+		layers: decodedLayers,
+		search: search
 	};
 }
 
@@ -1511,6 +1798,26 @@ class BitStream {
 			shift += 7;
 		}
 		return result;
+	}
+
+	writeString(str) {
+		const ALPHABET = "abcdefghijklmnopqrstuvwxyz0123456789 ,-:";
+		const filteredString = [...str].filter(c => (new Set(ALPHABET)).has(c)).join("")
+		this.writeVarint(filteredString.length);
+		for (const ch of filteredString) {
+			const idx = ALPHABET.indexOf(ch);
+			if (idx !== -1) this.writeBits(idx, 6);
+		}
+	}
+
+	readString() {
+		const ALPHABET = "abcdefghijklmnopqrstuvwxyz0123456789 ,-:";
+		const len = this.readVarint();
+		let out = "";
+		for (let i = 0; i < len; i++) {
+			out += ALPHABET[this.readBits(6)];
+		}
+		return out;
 	}
 
 	getUint8Array() {

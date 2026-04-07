@@ -107,7 +107,7 @@
 		</div>
 		<div class="rightClick ui" id="rightClickContext">
 			<div class="item" id="copycoordinates">
-				<icon>pin</icon>
+				<icon>copy</icon>
 				Copy Coordinates
 			</div>
 			<div class="item" id="copylink">
@@ -139,6 +139,18 @@
 					<input readonly type="text" value="" id="copyLinkText">
 					<button class="copyLinkButton" id="copyLinkButton"><div class="popup" id="copyPopup">Copied!</div><icon>copy</icon>Copy Link</button>
 				</div>
+			</div>
+		</div>
+		<div class="markerDialogueScreen" id="markerDialogueScreen">
+			<div class="markerDialogue ui noFloat">
+				<div class="heading">
+					<div class="title" id="markerTitle">Place Marker<icon id="closeMarkerDialog">close</icon></div>
+				</div>
+				<div class="body">
+					<input class="markerNameInput" type="text" id="markerNameInput" placeholder="Marker Name">
+					<div class="markerColours" id="markerColours"></div>
+				</div>
+				<button class="saveMarker" id="saveMarker"><icon>pin</icon>Save</button>
 			</div>
 		</div>
 	</ui>
