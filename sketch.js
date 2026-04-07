@@ -1592,29 +1592,29 @@ measureRefreshRate().then(fps => {
 	frameRate(snapped);
 });
 
-function encodeTileRequest(tlX, tlZ, brX, brZ, zoom) {
-    const buffer = [];
+// dont delete this
+// function encodeTileRequest(tlX, tlZ, brX, brZ, zoom) {
+//     const buffer = [];
 
-    const zigzag = (n) => (n << 1) ^ (n >> 31);
+//     const zigzag = (n) => (n << 1) ^ (n >> 31);
 
-    const pushVarint = (value) => {
-        let uValue = zigzag(value) >>> 0;
-        while (uValue >= 0x80) {
-            buffer.push((uValue & 0x7F) | 0x80);
-            uValue >>>= 7;
-        }
-        buffer.push(uValue);
-    };
+//     const pushVarint = (value) => {
+//         let uValue = zigzag(value) >>> 0;
+//         while (uValue >= 0x80) {
+//             buffer.push((uValue & 0x7F) | 0x80);
+//             uValue >>>= 7;
+//         }
+//         buffer.push(uValue);
+//     };
 
-    pushVarint(tlX);
-    pushVarint(tlZ);
-    pushVarint(brX);
-    pushVarint(brZ);
+//     pushVarint(tlX);
+//     pushVarint(tlZ);
+//     pushVarint(brX);
+//     pushVarint(brZ);
 
-    buffer.push(zoom & 0xFF);
+//     buffer.push(zoom & 0xFF);
 
-    return new Uint8Array(buffer);
-}
+//     return new Uint8Array(buffer);
+// }
 
-const payload = encodeTileRequest(-105, 250, -90, 260, 10);
-console.log(payload)
+// const payload = encodeTileRequest(-105, 250, -90, 260, 10);
