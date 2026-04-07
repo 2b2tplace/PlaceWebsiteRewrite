@@ -880,7 +880,7 @@ function mouseWheel(event) {
 
 function update() {
 	const ZOOM_SMOOTHING = 5;
-	const LOG_ZOOM_MIN = -9;
+	const LOG_ZOOM_MIN = -6.5;
 	const LOG_ZOOM_MAX = 4;
 	const ROUND_ZOOM = 100000;
 	const ROUND_VEL = 10000;
