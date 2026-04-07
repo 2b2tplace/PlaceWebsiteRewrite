@@ -226,30 +226,29 @@ function setup() {
 	placemarker.addEventListener("click", () => {
 		document.getElementById('rightClickContext').classList.remove('open');
 		document.getElementById('markerDialogueScreen').classList.add('open');
-		document.getElementById('markerNameInput').value = '';
-		const markerNameInput = document.getElementById('markerNameInput');
-		const ALLOWED_ALPHABET = "abcdefghijklmnopqrstuvwxyz0123456789 ,-:";
-		markerNameInput.addEventListener('input', (e) => {
-			const start = e.target.selectionStart;
-			const end = e.target.selectionEnd;
-			let val = e.target.value.toLowerCase();
-			let filtered = "";
-			for (let char of val) {
-				if (ALLOWED_ALPHABET.includes(char)) {
-					filtered += char;
-				}
-			}
-			e.target.value = filtered;
-			e.target.setSelectionRange(start, end);
-		});
-		document.getElementById('markerNameInput').focus();
 
-		let markerClose = createIcon('close');
-		markerClose.addEventListener('click', () => {
-			document.getElementById('markerDialogueScreen').classList.remove('open');
-		})
-		document.getElementById('markerTitle').innerHTML = 'Place Marker';
-		document.getElementById('markerTitle').appendChild(markerClose);
+		const markerNameInput = document.getElementById('markerNameInput');
+		markerNameInput.value = '';
+		markerNameInput.focus();
+
+		const closeBtn = document.getElementById('closeMarkerDialog');
+		if (closeBtn) {
+			closeBtn.onclick = () => {
+				document.getElementById('markerDialogueScreen').classList.remove('open');
+			};
+		}
+
+		const showCoordsContainer = document.getElementById('showCoords');
+		showCoordsContainer.innerHTML = '';
+
+		let markerShowCoords = false;
+		let coordIcon = createIcon('unchecked');
+		showCoordsContainer.append(coordIcon, "Show Coordinates");
+
+		showCoordsContainer.onclick = () => {
+			markerShowCoords = !markerShowCoords;
+			changeIcon(coordIcon, markerShowCoords ? 'checked' : 'unchecked');
+		};
 
 		const markerColours = document.getElementById('markerColours');
 		markerColours.innerHTML = '';
@@ -257,27 +256,26 @@ function setup() {
 			let option = createIcon(`worldPin${colour}`);
 			option.classList.add('item');
 			if (selectedMarkerColor == colour) option.classList.add('selected');
-			option.addEventListener('click', () => {
-				selectedMarkerColor = colour;
-				Array.from(markerColours.children).forEach(child => {
-					child.classList.remove('selected');
-				});
-				option.classList.add('selected');
-			});
 
+			option.onclick = () => {
+				selectedMarkerColor = colour;
+				Array.from(markerColours.children).forEach(child => child.classList.remove('selected'));
+				option.classList.add('selected');
+			};
 			markerColours.appendChild(option);
 		});
 
-		document.getElementById('saveMarker').addEventListener("click", () => {
-			const mName = document.getElementById('markerNameInput').value.trim() || 'Custom Pin';
+		document.getElementById('saveMarker').onclick = () => {
+			const mName = markerNameInput.value.trim() || 'Custom Pin';
 			tempMarkers.push({
 				x: rightClickCoords.x,
 				z: rightClickCoords.z,
 				name: mName,
-				color: selectedMarkerColor
+				color: selectedMarkerColor,
+				showCoords: markerShowCoords
 			});
 			document.getElementById('markerDialogueScreen').classList.remove('open');
-		});
+		};
 	});
 
 	const removemarker = document.getElementById('removemarker');
@@ -1037,6 +1035,22 @@ function draw() {
 			textAlign(CENTER, BOTTOM);
 			textSize(18 * scaleAmount);
 			text(marker.name || 'Custom Pin', marker.x + 0.5, marker.z + 0.5 - iconSize - (4 * scaleAmount));
+
+			if (marker.showCoords) {
+				textSize(14 * scaleAmount);
+				let displayX = Math.round(marker.x);
+				let displayZ = Math.round(marker.z);
+
+				let coordString = "";
+				if (currentDimension == 0 || currentDimension == 2) {
+					coordString = `${displayX}, ${displayZ}`;
+				} else {
+					coordString = `${displayX}, ${displayZ}`;
+				}
+
+				textAlign(CENTER, TOP);
+				text(coordString, marker.x + 0.5, marker.z + 0.5 + (4 * scaleAmount));
+			}
 		}
 	});
 	pop();
@@ -1394,6 +1408,12 @@ function createIcons() {
 		const img = document.createElement('img');
 		img.src = '/icon/' + text + '.png';
 		img.className = 'icon';
+
+		if (icon.id) img.id = icon.id;
+		Array.from(icon.attributes).forEach(attr => {
+			if (attr.name !== 'src') img.setAttribute(attr.name, attr.value);
+		});
+
 		icon.replaceWith(img);
 	});
 }
@@ -1652,7 +1672,7 @@ function encodeURL({ lat = Math.round(camera.x), lng = Math.round(camera.y), cam
 				let colorIdx = markerColors.indexOf(m.color);
 				if (colorIdx === -1) colorIdx = 0;
 				stream.writeBits(colorIdx, 3);
-
+				stream.writeBits(m.showCoords ? 1 : 0, 1);
 				stream.writeString(m.name || "Pin");
 			});
 		}
@@ -1716,12 +1736,14 @@ function decodeURL(base64String) {
 				const mx = unzigzag(stream.readVarint());
 				const mz = unzigzag(stream.readVarint());
 				const colorIdx = stream.readBits(3);
+				const showCoords = stream.readBits(1) === 1;
 				const mName = stream.readString();
 
 				tempMarkers.push({
 					x: mx,
 					z: mz,
 					color: markerColors[colorIdx] || 'Red',
+					showCoords: showCoords,
 					name: mName
 				});
 			}

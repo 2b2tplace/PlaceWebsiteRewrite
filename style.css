@@ -690,6 +690,12 @@ ui:has(.layers:not(.open)) .layersettings {
   padding: 8px;
 }
 
+.markerDialogue .showCoords {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
 .markerDialogue .saveMarker {
   border-radius: 12px;
   outline: none;
