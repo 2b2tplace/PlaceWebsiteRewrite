@@ -63,6 +63,7 @@ const dimensionOptions = [
 let debounceTimer;
 let atlasLocations = [];
 let pinIcon;
+let pinEnd;
 let renderSuggestions;
 let cachedClusters = [];
 let lastClusterCamX, lastClusterCamY, lastClusterZoom, lastClusterDim;
@@ -400,7 +401,8 @@ function setup() {
 	searchInput = document.getElementById('search');
 	searchPanel = document.getElementById('searchPanel');
 
-	pinIcon = loadImage('/icon/worldPin.png');
+	pinIcon = loadImage('/icon/worldPinBlack.png');
+	pinEnd = loadImage('/icon/worldPinEnd.png');
 
 	renderSuggestions = () => {
 		const parsed = getParsedInput(searchInput.value);
@@ -1005,7 +1007,11 @@ function draw() {
 				let iconSize = 32 * scaleAmount;
 
 				if (pinIcon && pinIcon.width > 0) {
-					image(pinIcon, loc.x - iconSize / 2, loc.z - iconSize, iconSize, iconSize);
+					if (loc.name == 'End Portal') {
+						image(pinEnd, loc.x - iconSize / 2, loc.z - iconSize, iconSize, iconSize);
+					} else {
+						image(pinIcon, loc.x - iconSize / 2, loc.z - iconSize, iconSize, iconSize);
+					}
 				}
 
 				if (camera.zoom > 0.001) {
