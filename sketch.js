@@ -1605,7 +1605,7 @@ function handleCoordinateSearch(val, createTempMarker = true) {
 				});
 			}
 
-			targetCam = { x: x, y: z, zoom: 0.06 };
+			targetCam = { x: x, y: z, zoom: 1.1 };
 			updateMapURL();
 		}
 	}
