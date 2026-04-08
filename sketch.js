@@ -3,8 +3,9 @@ let lastCamX = 0, lastCamY = 0;
 let lastDisplayX = null, lastDisplayY = null;
 let smoothCamVel = 0;
 let lod;
-let wasPressed = false;
+let isDraggingMap = false;
 let camera = { x: 0, y: 0, zoom: 0.004 };
+let targetCam = { x: null, y: null, zoom: null };
 let rightClickCoords = { x: 0, z: 0 };
 let intendedCamZoom = 0.004;
 let tileCache = {};
@@ -89,11 +90,11 @@ function getParsedInput(val) {
 	};
 }
 
-function fetchAtlasLocations(query) {
+function fetchAtlasLocations(query, showSuggestionsAfter = true) {
 	clearTimeout(debounceTimer);
 	if (!query) {
 		atlasLocations = [];
-		if (typeof renderSuggestions === 'function') renderSuggestions();
+		if (typeof renderSuggestions === 'function' && showSuggestionsAfter) renderSuggestions();
 		return;
 	}
 
@@ -127,7 +128,7 @@ function fetchAtlasLocations(query) {
 					desc: loc.description
 				};
 			});
-			if (typeof renderSuggestions === 'function') renderSuggestions();
+			if (typeof renderSuggestions === 'function' && showSuggestionsAfter) renderSuggestions();
 		} catch (e) {
 			console.error("Atlas search failed:", e);
 		}
@@ -160,7 +161,6 @@ function setup() {
 	markerColors.forEach(col => {
 		markerIcons[col] = loadImage(`/icon/worldPin${col}.png`);
 	});
-
 
 	const copycoords = document.getElementById('copycoordinates');
 	copycoords.addEventListener("click", () => {
@@ -224,60 +224,14 @@ function setup() {
 	});
 
 	const placemarker = document.getElementById('placemarker');
-	placemarker.addEventListener("click", () => {
-		document.getElementById('rightClickContext').classList.remove('open');
-		document.getElementById('markerDialogueScreen').classList.add('open');
+	placemarker.addEventListener("click", () => openMarkerEditDialog(null));
 
-		const markerNameInput = document.getElementById('markerNameInput');
-		markerNameInput.value = '';
-		markerNameInput.focus();
-
-		const closeBtn = document.getElementById('closeMarkerDialog');
-		if (closeBtn) {
-			closeBtn.onclick = () => {
-				document.getElementById('markerDialogueScreen').classList.remove('open');
-			};
-		}
-
-		const showCoordsContainer = document.getElementById('showCoords');
-		showCoordsContainer.innerHTML = '';
-
-		let markerShowCoords = false;
-		let coordIcon = createIcon('unchecked');
-		showCoordsContainer.append(coordIcon, "Show Coordinates");
-
-		showCoordsContainer.onclick = () => {
-			markerShowCoords = !markerShowCoords;
-			changeIcon(coordIcon, markerShowCoords ? 'checked' : 'unchecked');
-		};
-
-		const markerColours = document.getElementById('markerColours');
-		markerColours.innerHTML = '';
-		markerColors.forEach(colour => {
-			let option = createIcon(`worldPin${colour}`);
-			option.classList.add('item');
-			if (selectedMarkerColor == colour) option.classList.add('selected');
-
-			option.onclick = () => {
-				selectedMarkerColor = colour;
-				Array.from(markerColours.children).forEach(child => child.classList.remove('selected'));
-				option.classList.add('selected');
-			};
-			markerColours.appendChild(option);
+	const editmarker = document.getElementById('editmarker');
+	if (editmarker) {
+		editmarker.addEventListener("click", () => {
+			if (activeHoveredMarker) openMarkerEditDialog(activeHoveredMarker);
 		});
-
-		document.getElementById('saveMarker').onclick = () => {
-			const mName = markerNameInput.value.trim() || 'Custom Pin';
-			tempMarkers.push({
-				x: rightClickCoords.x,
-				z: rightClickCoords.z,
-				name: mName,
-				color: selectedMarkerColor,
-				showCoords: markerShowCoords
-			});
-			document.getElementById('markerDialogueScreen').classList.remove('open');
-		};
-	});
+	}
 
 	const removemarker = document.getElementById('removemarker');
 	removemarker.addEventListener("click", () => {
@@ -288,6 +242,12 @@ function setup() {
 	});
 
 	window.addEventListener('mousedown', (e) => {
+		if (e.target.tagName.toLowerCase() === 'canvas') {
+			if (document.activeElement === searchInput) {
+				searchInput.blur();
+			}
+			searchPanel.classList.remove('open');
+		}
 		const context = document.getElementById('rightClickContext');
 		if (!context.contains(e.target)) {
 			context.classList.remove('open');
@@ -302,14 +262,14 @@ function setup() {
 			rightClickCoords.x = Math.round(wMouse.x);
 			rightClickCoords.z = Math.round(wMouse.y);
 
-			let scaleAmount = 1 / camera.zoom;
-			let iconSize = 32 * scaleAmount;
-
 			activeHoveredMarker = null;
+			const currentScale = 1 / camera.zoom;
+			const iconHitbox = 32 * currentScale;
+
 			for (let i = tempMarkers.length - 1; i >= 0; i--) {
 				let m = tempMarkers[i];
-				if (wMouse.x >= m.x - iconSize / 2 && wMouse.x <= m.x + iconSize / 2 &&
-					wMouse.y >= m.z - iconSize && wMouse.y <= m.z) {
+				if (wMouse.x >= m.x - iconHitbox / 2 && wMouse.x <= m.x + iconHitbox / 2 &&
+					wMouse.y >= m.z - iconHitbox && wMouse.y <= m.z) {
 					activeHoveredMarker = m;
 					break;
 				}
@@ -317,9 +277,11 @@ function setup() {
 
 			if (activeHoveredMarker) {
 				document.getElementById('placemarker').style.display = 'none';
+				document.getElementById('editmarker').style.display = '';
 				document.getElementById('removemarker').style.display = '';
 			} else {
 				document.getElementById('placemarker').style.display = '';
+				document.getElementById('editmarker').style.display = 'none';
 				document.getElementById('removemarker').style.display = 'none';
 			}
 
@@ -327,28 +289,6 @@ function setup() {
 			context.classList.add('open');
 			context.style.left = event.clientX + 'px';
 			context.style.top = event.clientY + 'px';
-		}
-	});
-
-	window.addEventListener('mousedown', (e) => {
-		const context = document.getElementById('rightClickContext');
-		if (!context.contains(e.target)) {
-			context.classList.remove('open');
-		}
-	});
-
-	document.addEventListener('contextmenu', event => {
-		if (event.target.tagName.toLowerCase() === 'canvas') {
-			event.preventDefault();
-
-			const context = document.getElementById('rightClickContext');
-			context.classList.add('open');
-			context.style.left = event.clientX + 'px';
-			context.style.top = event.clientY + 'px';
-
-			const wMouse = getWorldMouse();
-			rightClickCoords.x = Math.round(wMouse.x);
-			rightClickCoords.z = Math.round(wMouse.y);
 		}
 	});
 
@@ -389,6 +329,7 @@ function setup() {
 
 			if (details.search) {
 				document.getElementById('search').value = details.search;
+				fetchAtlasLocations(details.search);
 			}
 		}
 	} else {
@@ -427,7 +368,8 @@ function setup() {
 					z: parsed.z,
 					name: dim.name,
 					icon: dim.icon,
-					tag: `${dim.id}: ${parsed.x}, ${parsed.z}`
+					tag: `${dim.id}: ${parsed.x}, ${parsed.z}`,
+					source: 'coordinates'
 				});
 			});
 
@@ -452,7 +394,8 @@ function setup() {
 						z: itemData.z,
 						name: itemData.name,
 						icon: itemData.icon,
-						tag: `${itemData.id}: ${itemData.x}, ${itemData.z}`
+						tag: `${itemData.id}: ${itemData.x}, ${itemData.z}`,
+						source: 'coordinates'
 					});
 				});
 			}
@@ -470,7 +413,8 @@ function setup() {
 					dimId: dimId,
 					dim: loc.dim,
 					icon: icon,
-					tag: `${dimId}: ${loc.x}, ${loc.z}`
+					tag: `${dimId}: ${loc.x}, ${loc.z}`,
+					source: 'atlas'
 				});
 			});
 		}
@@ -506,7 +450,14 @@ function setup() {
         `;
 			item.addEventListener('mousedown', (e) => {
 				e.preventDefault();
-				handleCoordinateSearch(`${sug.dimId}: ${sug.x}, ${sug.z}`);
+				if (sug.source == 'coordinates') {
+					searchInput.value = sug.tag;
+					handleCoordinateSearch(`${sug.dimId}: ${sug.x}, ${sug.z}`);
+				} else {
+					searchInput.value = sug.name;
+					fetchAtlasLocations(sug.name, false);
+					handleCoordinateSearch(`${sug.dimId}: ${sug.x}, ${sug.z}`, false);
+				}
 				searchPanel.classList.remove('open');
 			});
 			searchPanel.appendChild(item);
@@ -544,6 +495,7 @@ function setup() {
 			e.preventDefault();
 			if (isOpen && currentSuggestions.length > 0) {
 				const sug = currentSuggestions[selectedSuggestionIndex];
+				searchInput.value = sug.tag;
 				handleCoordinateSearch(`${sug.dimId}: ${sug.x}, ${sug.z}`);
 			} else {
 				handleCoordinateSearch(searchInput.value);
@@ -557,6 +509,13 @@ function setup() {
 	searchInput.addEventListener('focus', () => {
 		fetchAtlasLocations(searchInput.value);
 		renderSuggestions();
+	});
+
+	searchInput.addEventListener('click', () => {
+		if (searchInput.value && !searchPanel.classList.contains('open')) {
+			fetchAtlasLocations(searchInput.value);
+			renderSuggestions();
+		}
 	});
 
 	searchInput.addEventListener('blur', () => {
@@ -593,6 +552,17 @@ function setup() {
 		});
 		updateOnChange(() => layer.visible, (val) => {
 			changeIcon(visibilityIcon, val ? "checked" : "unchecked");
+			if (val) {
+				for (let key in tileCache) {
+					if (tileCache[key].controller) {
+						tileCache[key].controller.abort();
+					}
+				}
+				tileCache = {};
+				inFlightRequests.clear();
+				activeTileKeys.clear();
+				updateMapURL();
+			}
 		});
 
 		const layerIcon = createIcon(layer.icon);
@@ -832,25 +802,125 @@ function getWorldMouse() {
 	};
 }
 
+let editingMarker = null;
+function openMarkerEditDialog(marker = null) {
+	document.getElementById('rightClickContext').classList.remove('open');
+	document.getElementById('markerDialogueScreen').classList.add('open');
+
+	editingMarker = marker;
+
+	const markerNameInput = document.getElementById('markerNameInput');
+	markerNameInput.value = marker ? marker.name : '';
+	markerNameInput.focus();
+
+	const closeBtn = document.getElementById('closeMarkerDialog');
+	if (closeBtn) {
+		closeBtn.onclick = () => {
+			document.getElementById('markerDialogueScreen').classList.remove('open');
+		};
+	}
+
+	const owX = document.getElementById('markerOverworldX');
+	const owZ = document.getElementById('markerOverworldZ');
+	const neX = document.getElementById('markerNetherX');
+	const neZ = document.getElementById('markerNetherZ');
+
+	let baseX = marker ? marker.x : rightClickCoords.x;
+	let baseZ = marker ? marker.z : rightClickCoords.z;
+
+	const updateCoords = (dim) => {
+		if (dim === 'overworld') {
+			neX.value = Math.floor(parseFloat(owX.value || 0) / 8);
+			neZ.value = Math.floor(parseFloat(owZ.value || 0) / 8);
+		} else {
+			owX.value = Math.floor(parseFloat(neX.value || 0) * 8);
+			owZ.value = Math.floor(parseFloat(neZ.value || 0) * 8);
+		}
+	};
+
+	if (currentDimension === 1) {
+		// nether
+		neX.value = Math.round(baseX);
+		neZ.value = Math.round(baseZ);
+		owX.value = Math.round(baseX * 8);
+		owZ.value = Math.round(baseZ * 8);
+	} else {
+		// overworld and end
+		owX.value = Math.round(baseX);
+		owZ.value = Math.round(baseZ);
+		neX.value = Math.floor(baseX / 8);
+		neZ.value = Math.floor(baseZ / 8);
+	}
+
+	owX.oninput = () => updateCoords('overworld');
+	owZ.oninput = () => updateCoords('overworld');
+	neX.oninput = () => updateCoords('nether');
+	neZ.oninput = () => updateCoords('nether');
+
+	const showCoordsContainer = document.getElementById('showCoords');
+	showCoordsContainer.innerHTML = '';
+
+	let markerShowCoords = marker ? marker.showCoords : false;
+	let coordIcon = createIcon(markerShowCoords ? 'checked' : 'unchecked');
+	showCoordsContainer.append(coordIcon, "Show Coordinates");
+
+	showCoordsContainer.onclick = () => {
+		markerShowCoords = !markerShowCoords;
+		changeIcon(coordIcon, markerShowCoords ? 'checked' : 'unchecked');
+	};
+
+	if (marker && marker.color) selectedMarkerColor = marker.color;
+	const markerColours = document.getElementById('markerColours');
+	markerColours.innerHTML = '';
+	markerColors.forEach(colour => {
+		let option = createIcon(`worldPin${colour}`);
+		option.classList.add('item');
+		if (selectedMarkerColor == colour) option.classList.add('selected');
+
+		option.onclick = () => {
+			selectedMarkerColor = colour;
+			Array.from(markerColours.children).forEach(child => child.classList.remove('selected'));
+			option.classList.add('selected');
+		};
+		markerColours.appendChild(option);
+	});
+
+	document.getElementById('saveMarker').onclick = () => {
+		const mName = markerNameInput.value.trim();
+		let finalX = currentDimension === 1 ? parseFloat(neX.value) : parseFloat(owX.value);
+		let finalZ = currentDimension === 1 ? parseFloat(neZ.value) : parseFloat(owZ.value);
+
+		if (isNaN(finalX)) finalX = 0;
+		if (isNaN(finalZ)) finalZ = 0;
+
+		if (editingMarker) {
+			editingMarker.name = mName;
+			editingMarker.x = finalX;
+			editingMarker.z = finalZ;
+			editingMarker.color = selectedMarkerColor;
+			editingMarker.showCoords = markerShowCoords;
+			editingMarker.isSearch = false;
+		} else {
+			tempMarkers.push({
+				x: finalX,
+				z: finalZ,
+				name: mName,
+				color: selectedMarkerColor,
+				showCoords: markerShowCoords,
+				isSearch: false
+			});
+		}
+		document.getElementById('markerDialogueScreen').classList.remove('open');
+		updateMapURL();
+	};
+}
+
 function draw() {
 	update();
 
-	if (mouseIsPressed && mouseButton === LEFT) {
-		if (!wasPressed) {
-			originalMouseX = mouseX;
-			originalMouseY = mouseY;
-			originalCameraX = camera.x;
-			originalCameraY = camera.y;
-			wasPressed = true;
-		} else {
-			camera.x = originalCameraX + ((originalMouseX - mouseX) / camera.zoom);
-			camera.y = originalCameraY + ((originalMouseY - mouseY) / camera.zoom);
-		}
-	} else {
-		if (wasPressed) {
-			updateMapURL();
-			wasPressed = false;
-		}
+	if (isDraggingMap && mouseButton === LEFT) {
+		camera.x = originalCameraX + ((originalMouseX - mouseX) / camera.zoom);
+		camera.y = originalCameraY + ((originalMouseY - mouseY) / camera.zoom);
 	}
 
 	background('black');
@@ -1029,8 +1099,23 @@ function draw() {
 
 	push()
 	const scaleAmount = 1 / camera.zoom;
+	const wMouse = getWorldMouse();
+	let iconSize = 32 * scaleAmount;
+
+	const isContextMenuOpen = document.getElementById('rightClickContext').classList.contains('open');
+	if (!isContextMenuOpen) {
+		activeHoveredMarker = null;
+		for (let i = tempMarkers.length - 1; i >= 0; i--) {
+			let m = tempMarkers[i];
+			if (wMouse.x >= m.x - iconSize / 2 && wMouse.x <= m.x + iconSize / 2 &&
+				wMouse.y >= m.z - iconSize && wMouse.y <= m.z) {
+				activeHoveredMarker = m;
+				break;
+			}
+		}
+	}
+
 	tempMarkers.forEach(marker => {
-		let iconSize = 32 * scaleAmount;
 		let img = markerIcons[marker.color];
 		image(img, marker.x - iconSize / 2 + 0.5, marker.z - iconSize + 0.5, iconSize, iconSize);
 
@@ -1040,19 +1125,23 @@ function draw() {
 			strokeWeight(4 * scaleAmount);
 			textAlign(CENTER, BOTTOM);
 			textSize(18 * scaleAmount);
-			text(marker.name || 'Custom Pin', marker.x + 0.5, marker.z + 0.5 - iconSize - (4 * scaleAmount));
+
+			let displayName = marker.name;
+			if (marker.isSearch && !displayName) {
+				displayName = "";
+			} else if (!displayName) {
+				displayName = "Custom Pin";
+			}
+
+			if (displayName) {
+				text(displayName, marker.x + 0.5, marker.z + 0.5 - iconSize - (4 * scaleAmount));
+			}
 
 			if (marker.showCoords) {
 				textSize(14 * scaleAmount);
 				let displayX = Math.round(marker.x);
 				let displayZ = Math.round(marker.z);
-
-				let coordString = "";
-				if (currentDimension == 0 || currentDimension == 2) {
-					coordString = `${displayX}, ${displayZ}`;
-				} else {
-					coordString = `${displayX}, ${displayZ}`;
-				}
+				let coordString = `${displayX}, ${displayZ}`;
 
 				textAlign(CENTER, TOP);
 				text(coordString, marker.x + 0.5, marker.z + 0.5 + (4 * scaleAmount));
@@ -1073,7 +1162,6 @@ function draw() {
 		}
 	}
 
-	const wMouse = getWorldMouse();
 	let displayX = Math.round(wMouse.x);
 	let displayY = Math.round(wMouse.y);
 
@@ -1102,10 +1190,27 @@ function draw() {
 }
 
 function mousePressed(event) {
-	if (event.target.tagName.toLowerCase() !== 'canvas') {
-		wasPressed = false;
+	if (event.target.tagName.toLowerCase() === 'canvas') {
+		if (activeHoveredMarker && mouseButton === LEFT) {
+			targetCam = { x: activeHoveredMarker.x, y: activeHoveredMarker.z, zoom: 1.1 };
+			return;
+		}
+
+		isDraggingMap = true;
+		originalMouseX = mouseX;
+		originalMouseY = mouseY;
+		originalCameraX = camera.x;
+		originalCameraY = camera.y;
+		targetCam = { x: null, y: null, zoom: null };
 	}
 }
+
+window.addEventListener('mouseup', () => {
+	if (isDraggingMap) {
+		updateMapURL();
+		isDraggingMap = false;
+	}
+});
 
 function mouseWheel(event) {
 	isTrackpad = false;
@@ -1118,9 +1223,10 @@ function mouseWheel(event) {
 	}
 	mouseScrollX = event.deltaX;
 	mouseScrollY = event.deltaY;
+	targetCam = { x: null, y: null, zoom: null };
 
 	updateMapURL();
-	return false; // prevent safari default scrolling
+	return false;
 }
 
 function update() {
@@ -1130,7 +1236,28 @@ function update() {
 	const ROUND_ZOOM = 100000;
 	const ROUND_VEL = 10000;
 
-	if (!isTrackpad) {
+	if (targetCam.x !== null) {
+		const dx = targetCam.x - camera.x;
+		const dy = targetCam.y - camera.y;
+
+		camera.x += dx * 0.15;
+		camera.y += dy * 0.15;
+
+		let currentLogZoom = Math.log(camera.zoom);
+		let targetLogZoom = Math.log(targetCam.zoom);
+		camera.zoom = Math.exp(currentLogZoom + (targetLogZoom - currentLogZoom) * 0.15);
+		intendedCamZoom = camera.zoom;
+
+		if (Math.abs(dx) < 0.1 && Math.abs(dy) < 0.1 && Math.abs(targetLogZoom - Math.log(camera.zoom)) < 0.001) {
+			camera.x = targetCam.x;
+			camera.y = targetCam.y;
+			camera.zoom = targetCam.zoom;
+			intendedCamZoom = targetCam.zoom;
+			targetCam = { x: null, y: null, zoom: null };
+			updateMapURL();
+		}
+		cameraVel = 0;
+	} else if (!isTrackpad) {
 		if (Date.now() - timeOfLastPan > 50) {
 			const scroll = Math.abs(mouseScrollY) < 50 ? mouseScrollY * 10 : mouseScrollY;
 
@@ -1425,6 +1552,8 @@ function createIcons() {
 }
 
 window.addEventListener('keydown', (e) => {
+	if (document.activeElement && document.activeElement.tagName === 'INPUT') return;
+
 	if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
 		e.preventDefault();
 		searchInput.focus();
@@ -1434,9 +1563,17 @@ window.addEventListener('keydown', (e) => {
 		debugGrid = !debugGrid;
 		console.log("debug grid:", debugGrid ? "ON" : "OFF");
 	}
+	if ((e.key === 'Delete' || e.key === 'Backspace') && activeHoveredMarker) {
+		tempMarkers = tempMarkers.filter(m => m !== activeHoveredMarker);
+		activeHoveredMarker = null;
+		updateMapURL();
+	}
+	if (e.key.toLowerCase() === 'e' && activeHoveredMarker) {
+		openMarkerEditDialog(activeHoveredMarker);
+	}
 });
 
-function handleCoordinateSearch(val) {
+function handleCoordinateSearch(val, createTempMarker = true) {
 	const isEnd = val.toLowerCase().includes('end:');
 	const isNether = val.toLowerCase().includes('nether:');
 	const isOverworld = val.toLowerCase().includes('overworld:');
@@ -1456,8 +1593,20 @@ function handleCoordinateSearch(val) {
 				currentDimension = 2
 			}
 
-			camera.x = x;
-			camera.y = z;
+			if (createTempMarker) {
+				tempMarkers = tempMarkers.filter(m => !m.isSearch);
+				tempMarkers.push({
+					x: x,
+					z: z,
+					name: '',
+					color: 'Red',
+					showCoords: true,
+					isSearch: true
+				});
+			}
+
+			targetCam = { x: x, y: z, zoom: 0.06 };
+			updateMapURL();
 		}
 	}
 }
@@ -1679,7 +1828,7 @@ function encodeURL({ lat = Math.round(camera.x), lng = Math.round(camera.y), cam
 				if (colorIdx === -1) colorIdx = 0;
 				stream.writeBits(colorIdx, 3);
 				stream.writeBits(m.showCoords ? 1 : 0, 1);
-				stream.writeString(m.name || "Pin");
+				stream.writeString(m.name || "");
 			});
 		}
 	}
@@ -1829,7 +1978,7 @@ class BitStream {
 	}
 
 	writeString(str) {
-		const ALPHABET = "abcdefghijklmnopqrstuvwxyz0123456789 ,-:";
+		const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 ,-:";
 		const filteredString = [...str].filter(c => (new Set(ALPHABET)).has(c)).join("")
 		this.writeVarint(filteredString.length);
 		for (const ch of filteredString) {
@@ -1839,7 +1988,7 @@ class BitStream {
 	}
 
 	readString() {
-		const ALPHABET = "abcdefghijklmnopqrstuvwxyz0123456789 ,-:";
+		const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 ,-:";
 		const len = this.readVarint();
 		let out = "";
 		for (let i = 0; i < len; i++) {

@@ -119,6 +119,10 @@
 				<icon>addpin</icon>
 				Place Marker
 			</div>
+			<div class="item" id="editmarker">
+				<icon>settings</icon>
+				Edit Marker
+			</div>
 			<div class="item" id="removemarker">
 				<icon>removepin</icon>
 				Remove Marker
@@ -148,6 +152,18 @@
 				</div>
 				<div class="body">
 					<input class="markerNameInput" type="text" id="markerNameInput" placeholder="Marker Name">
+					<div class="markerCoords">
+						<div class="coordInput">
+							<label>Overworld</label>
+							<input type="number" id="markerOverworldX" placeholder="X">
+							<input type="number" id="markerOverworldZ" placeholder="Z">
+						</div>
+						<div class="coordInput">
+							<label>Nether</label>
+							<input type="number" id="markerNetherX" placeholder="X">
+							<input type="number" id="markerNetherZ" placeholder="Z">
+						</div>
+					</div>
 					<div class="markerColours" id="markerColours"></div>
 					<div class="showCoords" id="showCoords"></div>
 				</div>
