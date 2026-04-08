@@ -1569,6 +1569,7 @@ window.addEventListener('keydown', (e) => {
 		updateMapURL();
 	}
 	if (e.key.toLowerCase() === 'e' && activeHoveredMarker) {
+		e.preventDefault();
 		openMarkerEditDialog(activeHoveredMarker);
 	}
 });
