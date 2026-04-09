@@ -184,7 +184,7 @@ ui {
   top: 60px;
   width: 300px;
   height: auto;
-  overflow-y: scroll;
+  overflow-y: auto;
   max-height: 50vh;
   padding: 8px 12px 12px 12px;
   align-items: baseline;
@@ -234,6 +234,16 @@ ui {
   font-size: 12px;
   font-weight: 500;
   color: rgba(255, 255, 255, 0.6);
+}
+
+.scrollContainer {
+  width: 300px;
+}
+
+.scrollContainer .item {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
 }
 
 .topRight {
@@ -427,7 +437,8 @@ ui:has(.layers:not(.open)) .layersettings {
   margin: 5px 0px;
 }
 
-.copyLinkScreen, .markerDialogueScreen {
+.copyLinkScreen,
+.markerDialogueScreen {
   z-index: 99999;
   position: absolute;
   width: 100vw;
@@ -438,11 +449,13 @@ ui:has(.layers:not(.open)) .layersettings {
   justify-content: center;
 }
 
-.copyLinkScreen.open, .markerDialogueScreen.open {
+.copyLinkScreen.open,
+.markerDialogueScreen.open {
   display: flex;
 }
 
-.copyLinkDialogue, .markerDialogue {
+.copyLinkDialogue,
+.markerDialogue {
   height: unset;
   flex-direction: column;
   justify-content: baseline;
@@ -454,7 +467,8 @@ ui:has(.layers:not(.open)) .layersettings {
   max-width: 800px;
 }
 
-.copyLinkDialogue .heading, .markerDialogue .heading {
+.copyLinkDialogue .heading,
+.markerDialogue .heading {
   background-color: rgba(255, 255, 255, 0.05);
   padding: 10px 15px;
   width: calc(100% - 30px);
@@ -464,7 +478,8 @@ ui:has(.layers:not(.open)) .layersettings {
   border-bottom: solid 1px rgba(255, 255, 255, 0.085);
 }
 
-.copyLinkDialogue .title, .markerDialogue .title {
+.copyLinkDialogue .title,
+.markerDialogue .title {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -473,11 +488,13 @@ ui:has(.layers:not(.open)) .layersettings {
   width: calc(100% - 10px);
 }
 
-.copyLinkDialogue .title .icon:hover, .markerDialogue .title .icon:hover {
+.copyLinkDialogue .title .icon:hover,
+.markerDialogue .title .icon:hover {
   cursor: pointer;
 }
 
-.copyLinkDialogue .body, .markerDialogue .body {
+.copyLinkDialogue .body,
+.markerDialogue .body {
   padding: 10px 15px;
   display: flex;
   flex-direction: column;
@@ -485,7 +502,8 @@ ui:has(.layers:not(.open)) .layersettings {
   width: calc(100% - 30px);
 }
 
-.copyLinkDialogue .subheading, .markerDialogue.subheading {
+.copyLinkDialogue .subheading,
+.markerDialogue.subheading {
   display: flex;
   align-items: center;
   font-size: 20px;
@@ -534,7 +552,8 @@ ui:has(.layers:not(.open)) .layersettings {
 }
 
 .copyLinkDialogue .item.disabled {
-  color: rgba(255, 255, 255, 0.5);;
+  color: rgba(255, 255, 255, 0.5);
+  ;
   pointer-events: none;
 }
 
@@ -637,7 +656,7 @@ ui:has(.layers:not(.open)) .layersettings {
 @keyframes popFade {
   0% {
     opacity: 0;
-    transform:  translateY(-20px);
+    transform: translateY(-20px);
   }
 
   20% {
@@ -655,6 +674,7 @@ ui:has(.layers:not(.open)) .layersettings {
     transform: translateY(-50px);
   }
 }
+
 .markerDialogue .body {
   gap: 15px;
 }
@@ -751,6 +771,7 @@ ui:has(.layers:not(.open)) .layersettings {
   -webkit-appearance: none;
   margin: 0;
 }
+
 .coordInput input[type=number] {
   -moz-appearance: textfield;
 }

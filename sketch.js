@@ -57,6 +57,11 @@ let layers = {
 let searchPanel;
 let selectedSuggestionIndex = 0;
 let currentSuggestions = [];
+let itemHeight = 60;
+let searchPanelVisibleCount = 10;
+let lastSearchQuery = "";
+let searchClickX, searchClickY;
+
 const dimensionOptions = [
 	{ id: 'overworld', name: 'Overworld Coordinates', icon: 'world' },
 	{ id: 'nether', name: 'Nether Coordinates', icon: 'obsidian' },
@@ -93,12 +98,13 @@ function getParsedInput(val) {
 }
 
 function fetchAtlasLocations(query, showSuggestionsAfter = true) {
-	if (!query) {
+	if (!query || query.trim().length === 0) {
 		atlasLocations = [];
 		if (typeof renderSuggestions === 'function' && showSuggestionsAfter) renderSuggestions();
 		return;
 	}
 
+	const trimmedQuery = query.toLowerCase().trim();
 	const parsed = getParsedInput(query);
 	const isJustCoords = /^(overworld|nether|end)?\s*:?\s*-?\d+(\.\d+)?\s*,?\s*-?\d+(\.\d+)?\s*$/i.test(query.trim());
 
@@ -121,12 +127,31 @@ function fetchAtlasLocations(query, showSuggestionsAfter = true) {
 		withDist.sort((a, b) => a.dist - b.dist);
 		atlasLocations = withDist;
 	} else {
-		const lowerQuery = query.toLowerCase();
-		atlasLocations = allAtlasLocations.filter(loc =>
-			loc.name.toLowerCase().includes(lowerQuery) ||
-			(loc.desc && loc.desc.toLowerCase().includes(lowerQuery)) ||
-			(loc.tags && loc.tags.toLowerCase().includes(lowerQuery))
-		);
+		let results = [];
+		for (const loc of allAtlasLocations) {
+			let score = 0;
+			const name = loc.name.toLowerCase();
+			const desc = (loc.desc || "").toLowerCase();
+
+			if (name === trimmedQuery) score += 100;
+			else if (name.startsWith(trimmedQuery)) score += 80;
+			else if (name.includes(trimmedQuery)) score += 60;
+			else if (desc.includes(trimmedQuery)) score += 10;
+
+			if (score === 0 && trimmedQuery.length > 3) {
+				let queryIdx = 0;
+				for (let nIdx = 0; nIdx < name.length && queryIdx < trimmedQuery.length; nIdx++) {
+					if (name[nIdx] === trimmedQuery[queryIdx]) queryIdx++;
+				}
+				if (queryIdx === trimmedQuery.length) score += 5;
+			}
+
+			if (score > 0) {
+				results.push({ ...loc, searchScore: score });
+			}
+		}
+		results.sort((a, b) => b.searchScore - a.searchScore);
+		atlasLocations = results;
 	}
 
 	if (typeof renderSuggestions === 'function' && showSuggestionsAfter) renderSuggestions();
@@ -380,9 +405,7 @@ function setup() {
 			return;
 		}
 
-		searchPanel.innerHTML = '';
 		currentSuggestions = [];
-
 		if (parsed) {
 			let coordSuggestions = parsed.dim
 				? dimensionOptions.filter(d => d.id === parsed.dim)
@@ -429,29 +452,25 @@ function setup() {
 			}
 		}
 
-		if (atlasLocations.length > 0) {
-			atlasLocations.slice(0, 100).forEach(loc => {
-				let dimId = loc.dim === 2 ? 'end' : (loc.dim === 1 ? 'nether' : 'overworld');
-				let icon = loc.dim === 2 ? 'enderchest' : (loc.dim === 1 ? 'obsidian' : 'world');
-				currentSuggestions.push({
-					type: 'location',
-					name: loc.name,
-					x: loc.x,
-					z: loc.z,
-					dimId: dimId,
-					dim: loc.dim,
-					icon: icon,
-					tag: `${dimId}: ${loc.x}, ${loc.z}`,
-					source: 'atlas'
-				});
+		atlasLocations.forEach(loc => {
+			let dimId = loc.dim === 2 ? 'end' : (loc.dim === 1 ? 'nether' : 'overworld');
+			let icon = loc.dim === 2 ? 'enderchest' : (loc.dim === 1 ? 'obsidian' : 'world');
+			currentSuggestions.push({
+				type: 'location', name: loc.name, x: loc.x, z: loc.z,
+				dimId: dimId, dim: loc.dim, icon: icon,
+				tag: `${dimId}: ${loc.x}, ${loc.z}`, source: 'atlas'
 			});
+		});
+
+		if (currentSuggestions.length === 0) {
+			searchPanel.classList.remove('open');
+			return;
 		}
 
-		if (selectedSuggestionIndex >= currentSuggestions.length) {
-			selectedSuggestionIndex = Math.max(0, currentSuggestions.length - 1);
-		}
-
+		let renderItems = [];
+		let currentY = 0;
 		let currentSubheading = null;
+		const SUBHEADING_HEIGHT = 28;
 
 		currentSuggestions.forEach((sug, index) => {
 			let neededSubheading = null;
@@ -459,43 +478,91 @@ function setup() {
 			else if (sug.type === 'coord_converted') neededSubheading = 'Converted';
 			else if (sug.type === 'location') neededSubheading = 'Locations';
 
-			if (neededSubheading !== currentSubheading) {
-				let sh = document.createElement('div');
-				sh.className = 'subheading';
-				sh.innerText = neededSubheading;
-				searchPanel.appendChild(sh);
+			if (neededSubheading && neededSubheading !== currentSubheading) {
+				renderItems.push({
+					isHeader: true,
+					text: neededSubheading,
+					y: currentY,
+					height: SUBHEADING_HEIGHT
+				});
+				currentY += SUBHEADING_HEIGHT;
 				currentSubheading = neededSubheading;
 			}
 
-			const item = document.createElement("div");
-			item.className = `item ${index === selectedSuggestionIndex ? 'selected' : ''}`;
-			item.innerHTML = `
-            <img src="/icon/${sug.icon}.png" class="icon">
-            <div class="details">
-                <div class="name">${sug.name}</div>
-                <div class="tag">${sug.tag}</div>
-            </div>
-        `;
-			item.addEventListener('mousedown', (e) => {
-				e.preventDefault();
-				if (sug.source == 'coordinates') {
-					searchInput.value = sug.tag;
-					handleCoordinateSearch(`${sug.dimId}: ${sug.x}, ${sug.z}`);
-				} else {
-					searchInput.value = sug.name;
-					fetchAtlasLocations(sug.name, false);
-					handleCoordinateSearch(`${sug.dimId}: ${sug.x}, ${sug.z}`, false);
-				}
-				searchPanel.classList.remove('open');
+			renderItems.push({
+				...sug,
+				isHeader: false,
+				originalIndex: index,
+				y: currentY,
+				height: itemHeight
 			});
-			searchPanel.appendChild(item);
+			currentY += itemHeight;
 		});
 
-		if (currentSuggestions.length > 0) {
-			searchPanel.classList.add('open');
-		} else {
-			searchPanel.classList.remove('open');
+		const previousScrollTop = searchPanel.scrollTop || 0;
+
+		searchPanel.classList.add('open');
+		searchPanel.innerHTML = '';
+
+		const container = document.createElement('div');
+		container.className = 'scrollContainer';
+		container.style.height = currentY + 'px';
+		container.style.position = 'relative';
+		searchPanel.appendChild(container);
+
+		const selectedObj = renderItems.find(r => !r.isHeader && r.originalIndex === selectedSuggestionIndex);
+		let targetScrollTop = previousScrollTop;
+		if (selectedObj) {
+			const viewHeight = 350;
+			if (selectedObj.y < previousScrollTop) {
+				targetScrollTop = Math.max(0, selectedObj.y - SUBHEADING_HEIGHT);
+			} else if (selectedObj.y + selectedObj.height > previousScrollTop + viewHeight) {
+				targetScrollTop = selectedObj.y + selectedObj.height - viewHeight;
+			}
 		}
+
+		searchPanel.scrollTop = targetScrollTop;
+
+		const updateVisibleItems = () => {
+			const scrollTop = searchPanel.scrollTop;
+			const scrollBottom = scrollTop + searchPanel.clientHeight;
+
+			container.innerHTML = '';
+			for (let i = 0; i < renderItems.length; i++) {
+				const itemObj = renderItems[i];
+
+				if (itemObj.y + itemObj.height > scrollTop - itemHeight && itemObj.y < scrollBottom + itemHeight) {
+					const domNode = document.createElement("div");
+					domNode.style.position = 'absolute';
+					domNode.style.top = itemObj.y + 'px';
+					domNode.style.width = '100%';
+					domNode.style.height = itemObj.height + 'px';
+					domNode.style.boxSizing = 'border-box';
+
+					if (itemObj.isHeader) {
+						domNode.className = 'subheading';
+						domNode.innerText = itemObj.text;
+					} else {
+						domNode.className = `item ${itemObj.originalIndex === selectedSuggestionIndex ? 'selected' : ''}`;
+						domNode.innerHTML = `
+						<img src="/icon/${itemObj.icon}.png" class="icon">
+						<div class="details">
+							<div class="name">${itemObj.name}</div>
+							<div class="tag">${itemObj.tag}</div>
+						</div>`;
+
+						domNode.onmousedown = (e) => {
+							e.preventDefault();
+							selectSuggestion(itemObj);
+						};
+					}
+					container.appendChild(domNode);
+				}
+			}
+		};
+
+		searchPanel.onscroll = updateVisibleItems;
+		updateVisibleItems();
 	};
 
 	searchInput.addEventListener('input', () => {
@@ -687,6 +754,17 @@ function setup() {
 		});
 		copyLinkBody.appendChild(item);
 	});
+}
+
+function selectSuggestion(sug) {
+	if (sug.source == 'coordinates') {
+		searchInput.value = sug.tag;
+		handleCoordinateSearch(`${sug.dimId}: ${sug.x}, ${sug.z}`);
+	} else {
+		searchInput.value = sug.name;
+		handleCoordinateSearch(`${sug.dimId}: ${sug.x}, ${sug.z}`, false);
+	}
+	searchPanel.classList.remove('open');
 }
 
 function hasLayerSettingsChanged() {
@@ -1235,6 +1313,8 @@ function draw() {
 
 function mousePressed(event) {
 	if (event.target.tagName.toLowerCase() === 'canvas') {
+		searchClickX = mouseX;
+		searchClickY = mouseY;
 		if (activeHoveredMarker && mouseButton === LEFT) {
 			let mx = currentDimension === 1 ? activeHoveredMarker.x / 8 : activeHoveredMarker.x;
 			let mz = currentDimension === 1 ? activeHoveredMarker.z / 8 : activeHoveredMarker.z;
@@ -1273,12 +1353,40 @@ function mousePressed(event) {
 	}
 }
 
-window.addEventListener('mouseup', () => {
+function mouseReleased(event) {
 	if (isDraggingMap) {
 		updateMapURL();
 		isDraggingMap = false;
 	}
-});
+
+	const moveDist = dist(searchClickX, searchClickY, mouseX, mouseY);
+	const isActuallyAClick = moveDist < 5;
+
+	if (isActuallyAClick && event.target.tagName.toLowerCase() === 'canvas' && mouseButton === LEFT) {
+		const wMouse = getWorldMouse();
+		const currentScale = 1 / camera.zoom;
+		const iconHitbox = 32 * currentScale;
+
+		if (activeHoveredMarker) {
+			let mx = currentDimension === 1 ? activeHoveredMarker.x / 8 : activeHoveredMarker.x;
+			let mz = currentDimension === 1 ? activeHoveredMarker.z / 8 : activeHoveredMarker.z;
+			targetCam = { x: mx, y: mz, zoom: 1.1 };
+			return;
+		}
+
+		if (atlasLocations.length > 0) {
+			for (let cluster of cachedClusters) {
+				if (cluster.count < 2) {
+					if (wMouse.x >= cluster.x - iconHitbox / 2 && wMouse.x <= cluster.x + iconHitbox / 2 &&
+						wMouse.y >= cluster.z - iconHitbox && wMouse.y <= cluster.z) {
+						targetCam = { x: cluster.x, y: cluster.z, zoom: 1.1 };
+						return;
+					}
+				}
+			}
+		}
+	}
+}
 
 function mouseWheel(event) {
 	isTrackpad = false;
