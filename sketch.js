@@ -974,34 +974,29 @@ function renderFilterPanel() {
 	resetBtn.style.cursor = (filterSettings.radius.value !== filterSettings.radius.defaultValue) ? 'pointer' : 'default';
 }
 
-function addRecentSearch(queryOrSug) {
-	if (!queryOrSug) return;
-	let item;
-	if (typeof queryOrSug === 'string') {
-		const text = queryOrSug.trim();
-		if (!text) return;
-		item = { type: 'recent_query', text: text, icon: 'search', tag: 'Recent search' };
-	} else {
-		item = { ...queryOrSug, isRecent: true };
-		if (!item.icon) item.icon = 'search';
-		if (!item.tag) item.tag = 'Recent location';
-	}
+function addRecentSearch(query) {
+	if (!query || typeof query !== 'string') return;
+	const text = query.trim();
+	if (!text) return;
 
-	recentSearches = recentSearches.filter(r => {
-		if (r.type === 'recent_query' && item.type === 'recent_query') return r.text !== item.text;
-		if (r.tag && item.tag && r.tag === item.tag && r.name === item.name) return false;
-		if (r.name && item.name && r.name === item.name) return false;
-		return true;
-	});
+	const item = {
+		type: 'recent_query',
+		text: text,
+		icon: 'search',
+		tag: 'Recent search'
+	};
+
+	recentSearches = recentSearches.filter(r => r.text !== item.text);
 
 	recentSearches.unshift(item);
 	if (recentSearches.length > 10) recentSearches.pop();
-	try { localStorage.setItem('recentSearches', JSON.stringify(recentSearches)); } catch (e) { }
+
+	try {
+		localStorage.setItem('recentSearches', JSON.stringify(recentSearches));
+	} catch (e) { }
 }
 
 function selectSuggestion(sug) {
-	addRecentSearch(sug);
-
 	const sIcon = document.getElementById('searchIcon');
 	if (sIcon) {
 		changeIcon(sIcon, 'close');
