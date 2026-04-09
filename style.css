@@ -169,7 +169,7 @@ ui {
 .searchBar {
   top: 10px;
   left: 10px;
-  width: 300px;
+  width: 400px;
 }
 
 .searchBar #search {
@@ -182,7 +182,7 @@ ui {
 .searchPanel {
   left: 10px;
   top: 60px;
-  width: 300px;
+  width: 400px;
   height: auto;
   overflow-y: auto;
   max-height: 50vh;
@@ -215,6 +215,10 @@ ui {
   box-sizing: border-box;
 }
 
+.searchPanel .item.noHover:hover {
+  background-color: transparent;
+}
+
 .searchPanel .item:hover,
 .searchPanel .item.selected {
   background-color: rgba(255, 255, 255, 0.1);
@@ -237,7 +241,7 @@ ui {
 }
 
 .scrollContainer {
-  width: 300px;
+  width: 400px;
 }
 
 .scrollContainer .item {

@@ -62,6 +62,17 @@ let searchPanelVisibleCount = 10;
 let lastSearchQuery = "";
 let searchClickX, searchClickY;
 
+let isFilterMode = false;
+let isSelectingSuggestion = false;
+let filterSettings = {
+	radius: { icon: "radius", type: "slider", value: 1000, defaultValue: 1000, min: 5, max: 50000 }
+};
+let recentSearches = [];
+try {
+	const stored = localStorage.getItem('recentSearches');
+	if (stored) recentSearches = JSON.parse(stored);
+} catch (e) { }
+
 const dimensionOptions = [
 	{ id: 'overworld', name: 'Overworld Coordinates', icon: 'world' },
 	{ id: 'nether', name: 'Nether Coordinates', icon: 'obsidian' },
@@ -97,6 +108,18 @@ function getParsedInput(val) {
 	};
 }
 
+function getDistanceFromCamera(loc) {
+	let locX = loc.x;
+	let locZ = loc.z;
+	if (loc.dim === 2 && currentDimension !== 2) return Infinity;
+	if (currentDimension === 2 && loc.dim !== 2) return Infinity;
+
+	if (loc.dim === 0 && currentDimension === 1) { locX /= 8; locZ /= 8; }
+	else if (loc.dim === 1 && currentDimension === 0) { locX *= 8; locZ *= 8; }
+
+	return Math.sqrt(Math.pow(locX - camera.x, 2) + Math.pow(locZ - camera.y, 2));
+}
+
 function fetchAtlasLocations(query, showSuggestionsAfter = true) {
 	if (!query || query.trim().length === 0) {
 		atlasLocations = [];
@@ -108,24 +131,27 @@ function fetchAtlasLocations(query, showSuggestionsAfter = true) {
 	const parsed = getParsedInput(query);
 	const isJustCoords = /^(overworld|nether|end)?\s*:?\s*-?\d+(\.\d+)?\s*,?\s*-?\d+(\.\d+)?\s*$/i.test(query.trim());
 
+	const filterRadius = filterSettings.radius.value;
+
 	if (parsed && isJustCoords) {
 		let px = Math.round(parsed.x);
 		let pz = Math.round(parsed.z);
-		let targetDim = parsed.dim === 'end' ? 2 : (parsed.dim === 'overworld' ? 0 : null);
+		let targetDim = parsed.dim === 'end' ? 2 : (parsed.dim === 'overworld' ? 0 : (parsed.dim === 'nether' ? 1 : null));
 
-		let withDist = allAtlasLocations.map(loc => {
-			let d = Math.pow(loc.x - px, 2) + Math.pow(loc.z - pz, 2);
-			return { ...loc, dist: d };
+		let results = allAtlasLocations.map(loc => {
+			let d = Math.sqrt(Math.pow(loc.x - px, 2) + Math.pow(loc.z - pz, 2));
+			return { ...loc, distToSearch: d };
 		});
 
-		if (targetDim === 2) {
-			withDist = withDist.filter(l => l.dim === 2);
-		} else if (targetDim === 0) {
-			withDist = withDist.filter(l => l.dim !== 2);
+		if (targetDim !== null) {
+			results = results.filter(l => l.dim === targetDim);
 		}
 
-		withDist.sort((a, b) => a.dist - b.dist);
-		atlasLocations = withDist;
+		results = results.filter(l => l.distToSearch <= filterRadius);
+
+		results.sort((a, b) => a.distToSearch - b.distToSearch);
+		atlasLocations = results;
+
 	} else {
 		let results = [];
 		for (const loc of allAtlasLocations) {
@@ -133,24 +159,31 @@ function fetchAtlasLocations(query, showSuggestionsAfter = true) {
 			const name = loc.name.toLowerCase();
 			const desc = (loc.desc || "").toLowerCase();
 
-			if (name === trimmedQuery) score += 100;
-			else if (name.startsWith(trimmedQuery)) score += 80;
-			else if (name.includes(trimmedQuery)) score += 60;
-			else if (desc.includes(trimmedQuery)) score += 10;
+			if (name === trimmedQuery) score += 1000;
+			else if (name.startsWith(trimmedQuery)) score += 500;
+			else if (name.includes(trimmedQuery)) score += 200;
+			else if (desc.includes(trimmedQuery)) score += 50;
 
-			if (score === 0 && trimmedQuery.length > 3) {
-				let queryIdx = 0;
-				for (let nIdx = 0; nIdx < name.length && queryIdx < trimmedQuery.length; nIdx++) {
-					if (name[nIdx] === trimmedQuery[queryIdx]) queryIdx++;
+			if (trimmedQuery.length > 3) {
+				const distance = getLevenshteinDistance(trimmedQuery, name);
+				if (distance <= 4) {
+					score += (300 - (distance * 100));
 				}
-				if (queryIdx === trimmedQuery.length) score += 5;
 			}
 
 			if (score > 0) {
-				results.push({ ...loc, searchScore: score });
+				let camDist = getDistanceFromCamera(loc);
+				results.push({ ...loc, searchScore: score, distToCam: camDist });
 			}
 		}
-		results.sort((a, b) => b.searchScore - a.searchScore);
+
+		results.sort((a, b) => {
+			if (b.searchScore !== a.searchScore) {
+				return b.searchScore - a.searchScore;
+			}
+			return a.distToCam - b.distToCam;
+		});
+
 		atlasLocations = results;
 	}
 
@@ -294,6 +327,7 @@ function setup() {
 				searchInput.blur();
 			}
 			searchPanel.classList.remove('open');
+			isFilterMode = false;
 		}
 		const context = document.getElementById('rightClickContext');
 		if (!context.contains(e.target)) {
@@ -381,8 +415,12 @@ function setup() {
 			}
 
 			if (details.search) {
-				document.getElementById('search').value = details.search;
-				fetchAtlasLocations(details.search);
+				setTimeout(() => {
+					if (searchInput) {
+						searchInput.value = details.search;
+						fetchAtlasLocations(details.search);
+					}
+				}, 100);
 			}
 		}
 	} else {
@@ -392,75 +430,122 @@ function setup() {
 	}
 
 	// element setup
-	searchInput = document.getElementById('search');
 	searchPanel = document.getElementById('searchPanel');
+
+	const searchBar = document.getElementById('searchBar');
+	searchBar.innerHTML = '';
+	searchBar.appendChild(createIcon('search'));
+
+	searchInput = document.createElement('input');
+	searchInput.type = 'text';
+	searchInput.name = 'Search';
+	searchInput.placeholder = 'Search';
+	searchInput.id = 'search';
+	searchBar.appendChild(searchInput);
+
+	const filterIcon = createIcon('filter');
+	filterIcon.id = 'filterIcon';
+	filterIcon.style.cursor = 'pointer';
+	searchBar.appendChild(filterIcon);
+
+	const moreIcon = createIcon('more');
+	moreIcon.id = 'moreIcon';
+	searchBar.appendChild(moreIcon);
+
+	filterIcon.addEventListener('click', (e) => {
+		e.stopPropagation();
+		isFilterMode = !isFilterMode;
+		if (isFilterMode) {
+			renderFilterPanel();
+		} else {
+			if (searchInput.value || recentSearches.length > 0) {
+				renderSuggestions();
+			} else {
+				searchPanel.classList.remove('open');
+			}
+		}
+	});
 
 	pinIcon = loadImage('/icon/worldPinBlack.png');
 	pinEnd = loadImage('/icon/worldPinEnd.png');
 
 	renderSuggestions = () => {
+		if (isFilterMode) return;
+
 		const parsed = getParsedInput(searchInput.value);
-		if (!parsed && atlasLocations.length === 0) {
-			searchPanel.classList.remove('open');
-			return;
-		}
-
 		currentSuggestions = [];
-		if (parsed) {
-			let coordSuggestions = parsed.dim
-				? dimensionOptions.filter(d => d.id === parsed.dim)
-				: dimensionOptions;
 
-			coordSuggestions.forEach((dim) => {
-				currentSuggestions.push({
-					type: 'coord',
-					dimId: dim.id,
-					x: parsed.x,
-					z: parsed.z,
-					name: dim.name,
-					icon: dim.icon,
-					tag: `${dim.id}: ${parsed.x}, ${parsed.z}`,
-					source: 'coordinates'
+		if (searchInput.value.trim() === '') {
+			if (recentSearches.length > 0) {
+				recentSearches.forEach(r => {
+					currentSuggestions.push({ ...r, source: 'recent' });
 				});
-			});
-
-			const converted = [];
-			const { x, z, dim } = parsed;
-
-			if (dim === 'nether') {
-				converted.push({ id: 'overworld', name: 'Overworld', icon: 'world', x: x * 8, z: z * 8 });
-			} else if (dim === 'overworld') {
-				converted.push({ id: 'nether', name: 'Nether', icon: 'obsidian', x: Math.floor(x / 8), z: Math.floor(z / 8) });
-			} else if (!dim) {
-				converted.push({ id: 'overworld', name: 'Overworld', icon: 'world', x: x * 8, z: z * 8 });
-				converted.push({ id: 'nether', name: 'Nether', icon: 'obsidian', x: Math.floor(x / 8), z: Math.floor(z / 8) });
+			} else {
+				searchPanel.classList.remove('open');
+				return;
+			}
+		} else {
+			if (!parsed && atlasLocations.length === 0) {
+				searchPanel.classList.remove('open');
+				return;
 			}
 
-			if (converted.length > 0) {
-				converted.forEach((itemData) => {
+			if (parsed) {
+				let coordSuggestions = parsed.dim
+					? dimensionOptions.filter(d => d.id === parsed.dim)
+					: dimensionOptions;
+
+				coordSuggestions.forEach((dim) => {
 					currentSuggestions.push({
-						type: 'coord_converted',
-						dimId: itemData.id,
-						x: itemData.x,
-						z: itemData.z,
-						name: itemData.name,
-						icon: itemData.icon,
-						tag: `${itemData.id}: ${itemData.x}, ${itemData.z}`,
+						type: 'coord',
+						dimId: dim.id,
+						x: parsed.x,
+						z: parsed.z,
+						name: dim.name,
+						icon: dim.icon,
+						tag: `${dim.id}: ${parsed.x}, ${parsed.z}`,
 						source: 'coordinates'
 					});
 				});
-			}
-		}
 
-		atlasLocations.forEach(loc => {
-			let dimId = loc.dim === 2 ? 'end' : (loc.dim === 1 ? 'nether' : 'overworld');
-			let icon = loc.dim === 2 ? 'enderchest' : (loc.dim === 1 ? 'obsidian' : 'world');
-			currentSuggestions.push({
-				type: 'location', name: loc.name, x: loc.x, z: loc.z,
-				dimId: dimId, dim: loc.dim, icon: icon,
-				tag: `${dimId}: ${loc.x}, ${loc.z}`, source: 'atlas'
+				const converted = [];
+				const { x, z, dim } = parsed;
+
+				if (dim === 'nether') {
+					converted.push({ id: 'overworld', name: 'Overworld', icon: 'world', x: x * 8, z: z * 8 });
+				} else if (dim === 'overworld') {
+					converted.push({ id: 'nether', name: 'Nether', icon: 'obsidian', x: Math.floor(x / 8), z: Math.floor(z / 8) });
+				} else if (!dim) {
+					converted.push({ id: 'overworld', name: 'Overworld', icon: 'world', x: x * 8, z: z * 8 });
+					converted.push({ id: 'nether', name: 'Nether', icon: 'obsidian', x: Math.floor(x / 8), z: Math.floor(z / 8) });
+				}
+
+				if (converted.length > 0) {
+					converted.forEach((itemData) => {
+						currentSuggestions.push({
+							type: 'coord_converted',
+							dimId: itemData.id,
+							x: itemData.x,
+							z: itemData.z,
+							name: itemData.name,
+							icon: itemData.icon,
+							tag: `${itemData.id}: ${itemData.x}, ${itemData.z}`,
+							source: 'coordinates'
+						});
+					});
+				}
+			}
+
+			atlasLocations.forEach(loc => {
+				let dimId = loc.dim === 2 ? 'end' : (loc.dim === 1 ? 'nether' : 'overworld');
+				let icon = loc.dim === 2 ? 'enderchest' : (loc.dim === 1 ? 'obsidian' : 'world');
+				currentSuggestions.push({
+					type: 'location', name: loc.name, x: loc.x, z: loc.z,
+					dimId: dimId, dim: loc.dim, icon: icon,
+					tag: `${dimId}: ${loc.x}, ${loc.z}`, source: 'atlas'
+				});
 			});
-		});
+		}
 
 		if (currentSuggestions.length === 0) {
 			searchPanel.classList.remove('open');
@@ -474,7 +559,8 @@ function setup() {
 
 		currentSuggestions.forEach((sug, index) => {
 			let neededSubheading = null;
-			if (sug.type === 'coord') neededSubheading = 'Exact Coordinates';
+			if (sug.source === 'recent') neededSubheading = 'Recent Searches';
+			else if (sug.type === 'coord') neededSubheading = 'Exact Coordinates';
 			else if (sug.type === 'coord_converted') neededSubheading = 'Converted';
 			else if (sug.type === 'location') neededSubheading = 'Locations';
 
@@ -544,16 +630,22 @@ function setup() {
 						domNode.innerText = itemObj.text;
 					} else {
 						domNode.className = `item ${itemObj.originalIndex === selectedSuggestionIndex ? 'selected' : ''}`;
+						let displayIcon = itemObj.icon || 'search';
+						let displayName = itemObj.name || itemObj.text;
+						let displayTag = itemObj.tag || '';
+
 						domNode.innerHTML = `
-						<img src="/icon/${itemObj.icon}.png" class="icon">
+						<img src="/icon/${displayIcon}.png" class="icon">
 						<div class="details">
-							<div class="name">${itemObj.name}</div>
-							<div class="tag">${itemObj.tag}</div>
+							<div class="name">${displayName}</div>
+							<div class="tag">${displayTag}</div>
 						</div>`;
 
 						domNode.onmousedown = (e) => {
 							e.preventDefault();
+							isSelectingSuggestion = true;
 							selectSuggestion(itemObj);
+							setTimeout(() => { isSelectingSuggestion = false; }, 100);
 						};
 					}
 					container.appendChild(domNode);
@@ -566,6 +658,7 @@ function setup() {
 	};
 
 	searchInput.addEventListener('input', () => {
+		isFilterMode = false;
 		selectedSuggestionIndex = 0;
 		fetchAtlasLocations(searchInput.value);
 		renderSuggestions();
@@ -590,10 +683,12 @@ function setup() {
 			e.preventDefault();
 			if (isOpen && currentSuggestions.length > 0) {
 				const sug = currentSuggestions[selectedSuggestionIndex];
-				searchInput.value = sug.tag;
-				handleCoordinateSearch(`${sug.dimId}: ${sug.x}, ${sug.z}`);
+				selectSuggestion(sug);
 			} else {
+				addRecentSearch(searchInput.value);
 				handleCoordinateSearch(searchInput.value);
+				searchPanel.classList.remove('open');
+				isFilterMode = false;
 			}
 			searchInput.blur();
 		} else if (e.key === 'Escape') {
@@ -602,19 +697,30 @@ function setup() {
 	});
 
 	searchInput.addEventListener('focus', () => {
+		isFilterMode = false;
 		fetchAtlasLocations(searchInput.value);
 		renderSuggestions();
 	});
 
 	searchInput.addEventListener('click', () => {
-		if (searchInput.value && !searchPanel.classList.contains('open')) {
+		if (!searchPanel.classList.contains('open')) {
+			isFilterMode = false;
 			fetchAtlasLocations(searchInput.value);
 			renderSuggestions();
 		}
 	});
 
 	searchInput.addEventListener('blur', () => {
-		searchPanel.classList.remove('open');
+		if (!isSelectingSuggestion && searchInput.value.trim().length > 0 && (atlasLocations.length > 0 || getParsedInput(searchInput.value) !== null)) {
+			addRecentSearch(searchInput.value);
+		}
+		setTimeout(() => {
+			if (searchPanel.matches(':hover') || (document.getElementById('filterIcon') && document.getElementById('filterIcon').matches(':hover'))) {
+				return;
+			}
+			searchPanel.classList.remove('open');
+			isFilterMode = false;
+		}, 150);
 	});
 
 	coordinateText = document.getElementById('coordinateText');
@@ -756,15 +862,131 @@ function setup() {
 	});
 }
 
+function renderFilterPanel() {
+	searchPanel.innerHTML = '';
+	searchPanel.classList.add('open');
+
+	const label = document.createElement('div');
+	label.className = 'subheading';
+	label.innerText = 'Filter Options';
+	searchPanel.appendChild(label);
+
+	const settingDiv = document.createElement('div');
+	settingDiv.className = 'item noHover';
+	settingDiv.style.cursor = 'default';
+	settingDiv.style.display = 'flex';
+	settingDiv.style.flexWrap = 'wrap';
+	settingDiv.style.justifyContent = 'space-between';
+
+	const resetBtn = createIcon('reset');
+	resetBtn.style.cursor = 'pointer';
+
+	const sIcon = createIcon(filterSettings.radius.icon);
+	const nameDiv = document.createElement('div');
+	nameDiv.innerText = 'Radius: ' + Math.round(filterSettings.radius.value);
+	nameDiv.style.flexGrow = '1';
+	nameDiv.style.fontSize = '17px';
+
+	const topRow = document.createElement('div');
+	topRow.style.display = 'flex';
+	topRow.style.alignItems = 'center';
+	topRow.style.gap = '10px';
+	topRow.append(resetBtn, sIcon, nameDiv);
+
+	settingDiv.appendChild(topRow);
+
+	const bottomRow = document.createElement('div');
+	bottomRow.style.display = 'flex';
+	bottomRow.style.boxSizing = 'border-box';
+
+	const sliderImg = document.createElement('img');
+	sliderImg.src = '/icon/slider.png';
+	sliderImg.className = 'slider';
+	bottomRow.appendChild(sliderImg);
+
+	settingDiv.appendChild(bottomRow);
+	searchPanel.appendChild(settingDiv);
+
+	setupSlider(sliderImg, filterSettings.radius, filterSettings.radius.min, filterSettings.radius.max);
+
+	resetBtn.addEventListener('click', () => {
+		if (filterSettings.radius.value !== filterSettings.radius.defaultValue) {
+			filterSettings.radius.value = filterSettings.radius.defaultValue;
+			nameDiv.innerText = 'Radius: ' + Math.round(filterSettings.radius.value);
+			fetchAtlasLocations(searchInput.value);
+		}
+	});
+
+	let fetchTimeout;
+	updateOnChange(() => filterSettings.radius.value, (val) => {
+		resetBtn.style.opacity = (val !== filterSettings.radius.defaultValue) ? 1 : 0.5;
+		resetBtn.style.cursor = (val !== filterSettings.radius.defaultValue) ? 'pointer' : 'default';
+		nameDiv.innerText = 'Radius: ' + Math.round(val / 5) * 5;
+
+		clearTimeout(fetchTimeout);
+		fetchTimeout = setTimeout(() => {
+			if (searchInput.value) {
+				fetchAtlasLocations(searchInput.value, false);
+			}
+		}, 100);
+	});
+
+	resetBtn.style.opacity = (filterSettings.radius.value !== filterSettings.radius.defaultValue) ? 1 : 0.5;
+	resetBtn.style.cursor = (filterSettings.radius.value !== filterSettings.radius.defaultValue) ? 'pointer' : 'default';
+}
+
+function addRecentSearch(queryOrSug) {
+	if (!queryOrSug) return;
+	let item;
+	if (typeof queryOrSug === 'string') {
+		const text = queryOrSug.trim();
+		if (!text) return;
+		item = { type: 'recent_query', text: text, icon: 'search', tag: 'Recent search' };
+	} else {
+		item = { ...queryOrSug, isRecent: true };
+		if (!item.icon) item.icon = 'search';
+		if (!item.tag) item.tag = 'Recent location';
+	}
+
+	recentSearches = recentSearches.filter(r => {
+		if (r.type === 'recent_query' && item.type === 'recent_query') return r.text !== item.text;
+		if (r.tag && item.tag && r.tag === item.tag && r.name === item.name) return false;
+		if (r.name && item.name && r.name === item.name) return false;
+		return true;
+	});
+
+	recentSearches.unshift(item);
+	if (recentSearches.length > 10) recentSearches.pop();
+	try { localStorage.setItem('recentSearches', JSON.stringify(recentSearches)); } catch (e) { }
+}
+
 function selectSuggestion(sug) {
-	if (sug.source == 'coordinates') {
+	addRecentSearch(sug);
+
+	if (sug.type === 'recent_query') {
+		searchInput.value = sug.text;
+		fetchAtlasLocations(sug.text, false);
+
+		if (atlasLocations.length > 0) {
+			let loc = atlasLocations[0];
+			let dimId = loc.dim === 2 ? 'end' : (loc.dim === 1 ? 'nether' : 'overworld');
+			handleCoordinateSearch(`${dimId}: ${loc.x}, ${loc.z}`, false);
+		} else {
+			handleCoordinateSearch(sug.text, false);
+		}
+	} else if (sug.source == 'coordinates') {
 		searchInput.value = sug.tag;
 		handleCoordinateSearch(`${sug.dimId}: ${sug.x}, ${sug.z}`);
 	} else {
 		searchInput.value = sug.name;
+
+		fetchAtlasLocations(sug.name, false);
+
 		handleCoordinateSearch(`${sug.dimId}: ${sug.x}, ${sug.z}`, false);
 	}
+
 	searchPanel.classList.remove('open');
+	isFilterMode = false;
 }
 
 function hasLayerSettingsChanged() {
@@ -1932,6 +2154,27 @@ function getClusters() {
 		}
 	}
 	return clusters;
+}
+
+function getLevenshteinDistance(a, b) {
+	const matrix = [];
+	for (let i = 0; i <= b.length; i++) matrix[i] = [i];
+	for (let j = 0; j <= a.length; j++) matrix[0][j] = j;
+
+	for (let i = 1; i <= b.length; i++) {
+		for (let j = 1; j <= a.length; j++) {
+			if (b.charAt(i - 1) === a.charAt(j - 1)) {
+				matrix[i][j] = matrix[i - 1][j - 1];
+			} else {
+				matrix[i][j] = Math.min(
+					matrix[i - 1][j - 1] + 1,
+					matrix[i][j - 1] + 1,
+					matrix[i - 1][j] + 1
+				);
+			}
+		}
+	}
+	return matrix[b.length][a.length];
 }
 
 function updateMapURL() {
