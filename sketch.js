@@ -63,7 +63,7 @@ const dimensionOptions = [
 	{ id: 'end', name: 'End Coordinates', icon: 'enderchest' }
 ];
 
-let debounceTimer;
+let allAtlasLocations = [];
 let atlasLocations = [];
 let pinIcon;
 let pinEnd;
@@ -93,48 +93,43 @@ function getParsedInput(val) {
 }
 
 function fetchAtlasLocations(query, showSuggestionsAfter = true) {
-	clearTimeout(debounceTimer);
 	if (!query) {
 		atlasLocations = [];
 		if (typeof renderSuggestions === 'function' && showSuggestionsAfter) renderSuggestions();
 		return;
 	}
 
-	debounceTimer = setTimeout(async () => {
-		try {
-			const parsed = getParsedInput(query);
-			let url = `https://2b2tatlas.com/api/locations.php?rows=100`;
+	const parsed = getParsedInput(query);
+	const isJustCoords = /^(overworld|nether|end)?\s*:?\s*-?\d+(\.\d+)?\s*,?\s*-?\d+(\.\d+)?\s*$/i.test(query.trim());
 
-			const isJustCoords = /^(overworld|nether|end)?\s*:?\s*-?\d+(\.\d+)?\s*,?\s*-?\d+(\.\d+)?\s*$/i.test(query.trim());
+	if (parsed && isJustCoords) {
+		let px = Math.round(parsed.x);
+		let pz = Math.round(parsed.z);
+		let targetDim = parsed.dim === 'end' ? 2 : (parsed.dim === 'overworld' ? 0 : null);
 
-			if (parsed && isJustCoords) {
-				url += `&x=${Math.round(parsed.x)}&z=${Math.round(parsed.z)}`;
-				if (parsed.dim === 'end') url += `&dimension=1`;
-				else if (parsed.dim === 'overworld') url += `&dimension=0`;
-			} else {
-				url += `&search=${encodeURIComponent(query)}`;
-			}
+		let withDist = allAtlasLocations.map(loc => {
+			let d = Math.pow(loc.x - px, 2) + Math.pow(loc.z - pz, 2);
+			return { ...loc, dist: d };
+		});
 
-			const res = await fetch(url);
-			if (!res.ok) throw new Error("API responded with " + res.status);
-			const data = await res.json();
-			atlasLocations = data.map(loc => {
-				let dim = 0; // overworld
-				if (loc.end_dimension === "1") dim = 2; // end
-				return {
-					name: loc.name,
-					x: parseFloat(loc.x),
-					z: parseFloat(loc.z),
-					dim: dim,
-					uuid: loc.location_uuid,
-					desc: loc.description
-				};
-			});
-			if (typeof renderSuggestions === 'function' && showSuggestionsAfter) renderSuggestions();
-		} catch (e) {
-			console.error("Atlas search failed:", e);
+		if (targetDim === 2) {
+			withDist = withDist.filter(l => l.dim === 2);
+		} else if (targetDim === 0) {
+			withDist = withDist.filter(l => l.dim !== 2);
 		}
-	}, 300);
+
+		withDist.sort((a, b) => a.dist - b.dist);
+		atlasLocations = withDist;
+	} else {
+		const lowerQuery = query.toLowerCase();
+		atlasLocations = allAtlasLocations.filter(loc =>
+			loc.name.toLowerCase().includes(lowerQuery) ||
+			(loc.desc && loc.desc.toLowerCase().includes(lowerQuery)) ||
+			(loc.tags && loc.tags.toLowerCase().includes(lowerQuery))
+		);
+	}
+
+	if (typeof renderSuggestions === 'function' && showSuggestionsAfter) renderSuggestions();
 }
 
 // elements
@@ -159,6 +154,31 @@ function setup() {
 	createCanvas(windowWidth, windowHeight, WEBGL);
 	textFont(poppins);
 	imageMode(CORNER);
+
+	fetch('https://2b2tatlas.com/api/locations.php?rows=99999')
+		.then(res => res.json())
+		.then(data => {
+			allAtlasLocations = data.map(loc => {
+				let dim = 0;
+				if (loc.end_dimension === "1") dim = 2;
+				return {
+					name: loc.name,
+					x: parseFloat(loc.x),
+					z: parseFloat(loc.z),
+					dim: dim,
+					uuid: loc.location_uuid,
+					desc: loc.description
+				};
+			});
+			if (searchInput && searchInput.value) {
+				fetchAtlasLocations(searchInput.value);
+			}
+		})
+		.catch(e => console.error("Initial Atlas load failed:", e));
+
+	markerColors.forEach(col => {
+		markerIcons[col] = loadImage(`/icon/worldPin${col}.png`);
+	});
 
 	markerColors.forEach(col => {
 		markerIcons[col] = loadImage(`/icon/worldPin${col}.png`);
@@ -270,8 +290,14 @@ function setup() {
 
 			for (let i = tempMarkers.length - 1; i >= 0; i--) {
 				let m = tempMarkers[i];
-				if (wMouse.x >= m.x - iconHitbox / 2 && wMouse.x <= m.x + iconHitbox / 2 &&
-					wMouse.y >= m.z - iconHitbox && wMouse.y <= m.z) {
+				let mDim = m.dim !== undefined ? m.dim : 0;
+				if ((mDim === 2) !== (currentDimension === 2)) continue;
+
+				let mx = currentDimension === 1 ? m.x / 8 : m.x;
+				let mz = currentDimension === 1 ? m.z / 8 : m.z;
+
+				if (wMouse.x >= mx - iconHitbox / 2 && wMouse.x <= mx + iconHitbox / 2 &&
+					wMouse.y >= mz - iconHitbox && wMouse.y <= mz) {
 					activeHoveredMarker = m;
 					break;
 				}
@@ -404,7 +430,7 @@ function setup() {
 		}
 
 		if (atlasLocations.length > 0) {
-			atlasLocations.forEach(loc => {
+			atlasLocations.slice(0, 100).forEach(loc => {
 				let dimId = loc.dim === 2 ? 'end' : (loc.dim === 1 ? 'nether' : 'overworld');
 				let icon = loc.dim === 2 ? 'enderchest' : (loc.dim === 1 ? 'obsidian' : 'world');
 				currentSuggestions.push({
@@ -827,8 +853,8 @@ function openMarkerEditDialog(marker = null) {
 	const neX = document.getElementById('markerNetherX');
 	const neZ = document.getElementById('markerNetherZ');
 
-	let baseX = marker ? marker.x : rightClickCoords.x;
-	let baseZ = marker ? marker.z : rightClickCoords.z;
+	let baseX = marker ? marker.x : (currentDimension === 1 ? rightClickCoords.x * 8 : rightClickCoords.x);
+	let baseZ = marker ? marker.z : (currentDimension === 1 ? rightClickCoords.z * 8 : rightClickCoords.z);
 
 	const updateCoords = (dim) => {
 		if (dim === 'overworld') {
@@ -842,10 +868,10 @@ function openMarkerEditDialog(marker = null) {
 
 	if (currentDimension === 1) {
 		// nether
-		neX.value = Math.round(baseX);
-		neZ.value = Math.round(baseZ);
-		owX.value = Math.round(baseX * 8);
-		owZ.value = Math.round(baseZ * 8);
+		neX.value = Math.round(baseX / 8);
+		neZ.value = Math.round(baseZ / 8);
+		owX.value = Math.round(baseX);
+		owZ.value = Math.round(baseZ);
 	} else {
 		// overworld and end
 		owX.value = Math.round(baseX);
@@ -889,8 +915,8 @@ function openMarkerEditDialog(marker = null) {
 
 	document.getElementById('saveMarker').onclick = () => {
 		const mName = markerNameInput.value.trim();
-		let finalX = currentDimension === 1 ? parseFloat(neX.value) : parseFloat(owX.value);
-		let finalZ = currentDimension === 1 ? parseFloat(neZ.value) : parseFloat(owZ.value);
+		let finalX = parseFloat(owX.value);
+		let finalZ = parseFloat(owZ.value);
 
 		if (isNaN(finalX)) finalX = 0;
 		if (isNaN(finalZ)) finalZ = 0;
@@ -909,7 +935,8 @@ function openMarkerEditDialog(marker = null) {
 				name: mName,
 				color: selectedMarkerColor,
 				showCoords: markerShowCoords,
-				isSearch: false
+				isSearch: false,
+				dim: currentDimension === 2 ? 2 : 0
 			});
 		}
 		document.getElementById('markerDialogueScreen').classList.remove('open');
@@ -1082,9 +1109,9 @@ function draw() {
 
 				if (pinIcon && pinIcon.width > 0) {
 					if (loc.name == 'End Portal') {
-						image(pinEnd, loc.x - iconSize / 2, loc.z - iconSize, iconSize, iconSize);
+						image(pinEnd, cluster.x - iconSize / 2 + 0.5, cluster.z - iconSize + 0.5, iconSize, iconSize);
 					} else {
-						image(pinIcon, loc.x - iconSize / 2, loc.z - iconSize, iconSize, iconSize);
+						image(pinIcon, cluster.x - iconSize / 2 + 0.5, cluster.z - iconSize + 0.5, iconSize, iconSize);
 					}
 				}
 
@@ -1094,7 +1121,7 @@ function draw() {
 					strokeWeight(4 * scaleAmount);
 					textAlign(CENTER, BOTTOM);
 					textSize(18 * scaleAmount);
-					text(loc.name, loc.x, loc.z - iconSize - (4 * scaleAmount));
+					text(loc.name, cluster.x, cluster.z - iconSize - (4 * scaleAmount));
 				}
 			}
 		}
@@ -1111,8 +1138,14 @@ function draw() {
 		activeHoveredMarker = null;
 		for (let i = tempMarkers.length - 1; i >= 0; i--) {
 			let m = tempMarkers[i];
-			if (wMouse.x >= m.x - iconSize / 2 && wMouse.x <= m.x + iconSize / 2 &&
-				wMouse.y >= m.z - iconSize && wMouse.y <= m.z) {
+			let mDim = m.dim !== undefined ? m.dim : 0;
+			if ((mDim === 2) !== (currentDimension === 2)) continue;
+
+			let mx = currentDimension === 1 ? m.x / 8 : m.x;
+			let mz = currentDimension === 1 ? m.z / 8 : m.z;
+
+			if (wMouse.x >= mx - iconSize / 2 && wMouse.x <= mx + iconSize / 2 &&
+				wMouse.y >= mz - iconSize && wMouse.y <= mz) {
 				activeHoveredMarker = m;
 				break;
 			}
@@ -1120,8 +1153,15 @@ function draw() {
 	}
 
 	tempMarkers.forEach(marker => {
+		let mDim = marker.dim !== undefined ? marker.dim : 0;
+		if ((mDim === 2) !== (currentDimension === 2)) return;
+
+		let mx = marker.x;
+		let mz = marker.z;
+		if (currentDimension === 1) { mx /= 8; mz /= 8; }
+
 		let img = markerIcons[marker.color];
-		image(img, marker.x - iconSize / 2 + 0.5, marker.z - iconSize + 0.5, iconSize, iconSize);
+		image(img, mx - iconSize / 2 + 0.5, mz - iconSize + 0.5, iconSize, iconSize);
 
 		if (camera.zoom > 0.001) {
 			fill(255);
@@ -1138,17 +1178,17 @@ function draw() {
 			}
 
 			if (displayName) {
-				text(displayName, marker.x + 0.5, marker.z + 0.5 - iconSize - (4 * scaleAmount));
+				text(displayName, mx + 0.5, mz + 0.5 - iconSize - (4 * scaleAmount));
 			}
 
 			if (marker.showCoords) {
 				textSize(14 * scaleAmount);
-				let displayX = Math.round(marker.x);
-				let displayZ = Math.round(marker.z);
+				let displayX = Math.round(mx);
+				let displayZ = Math.round(mz);
 				let coordString = `${displayX}, ${displayZ}`;
 
 				textAlign(CENTER, TOP);
-				text(coordString, marker.x + 0.5, marker.z + 0.5 + (4 * scaleAmount));
+				text(coordString, mx + 0.5, mz + 0.5 + (4 * scaleAmount));
 			}
 		}
 	});
@@ -1196,7 +1236,9 @@ function draw() {
 function mousePressed(event) {
 	if (event.target.tagName.toLowerCase() === 'canvas') {
 		if (activeHoveredMarker && mouseButton === LEFT) {
-			targetCam = { x: activeHoveredMarker.x, y: activeHoveredMarker.z, zoom: 1.1 };
+			let mx = currentDimension === 1 ? activeHoveredMarker.x / 8 : activeHoveredMarker.x;
+			let mz = currentDimension === 1 ? activeHoveredMarker.z / 8 : activeHoveredMarker.z;
+			targetCam = { x: mx, y: mz, zoom: 1.1 };
 			return;
 		} else if (mouseButton === LEFT) {
 			const wMouse = getWorldMouse();
@@ -1211,10 +1253,9 @@ function mousePressed(event) {
 
 				for (let cluster of cachedClusters) {
 					if (cluster.count < 2) {
-						let loc = cluster.original;
-						if (wMouse.x >= loc.x - iconHitbox / 2 && wMouse.x <= loc.x + iconHitbox / 2 &&
-							wMouse.y >= loc.z - iconHitbox && wMouse.y <= loc.z) {
-							targetCam = { x: loc.x, y: loc.z, zoom: 1.1 };
+						if (wMouse.x >= cluster.x - iconHitbox / 2 && wMouse.x <= cluster.x + iconHitbox / 2 &&
+							wMouse.y >= cluster.z - iconHitbox && wMouse.y <= cluster.z) {
+							targetCam = { x: cluster.x, y: cluster.z, zoom: 1.1 };
 							return;
 						}
 					}
@@ -1309,13 +1350,13 @@ function update() {
 			const previousZoom = camera.zoom;
 			const newZoom = Math.round((previousZoom + (intendedCamZoom - previousZoom) / ZOOM_SMOOTHING) * ROUND_ZOOM) / ROUND_ZOOM;
 
+			const wMouseX = (mouseX - width / 2) / previousZoom + camera.x;
+			const wMouseY = (mouseY - height / 2) / previousZoom + camera.y;
+
 			camera.zoom = newZoom;
 
-			const zoomRatio = previousZoom / newZoom;
-			const wMouse = getWorldMouse();
-
-			camera.x += (wMouse.x - camera.x) * (1 - zoomRatio);
-			camera.y += (wMouse.y - camera.y) * (1 - zoomRatio);
+			camera.x = wMouseX - (mouseX - width / 2) / newZoom;
+			camera.y = wMouseY - (mouseY - height / 2) / newZoom;
 
 			cameraVel = Math.round((previousZoom - newZoom) * ROUND_VEL) / ROUND_VEL;
 		}
@@ -1635,12 +1676,13 @@ function handleCoordinateSearch(val, createTempMarker = true) {
 			if (createTempMarker) {
 				tempMarkers = tempMarkers.filter(m => !m.isSearch);
 				tempMarkers.push({
-					x: x,
-					z: z,
+					x: currentDimension === 1 ? x * 8 : x,
+					z: currentDimension === 1 ? z * 8 : z,
 					name: '',
 					color: 'Red',
 					showCoords: true,
-					isSearch: true
+					isSearch: true,
+					dim: currentDimension === 2 ? 2 : 0
 				});
 			}
 
@@ -1938,7 +1980,8 @@ function decodeURL(base64String) {
 					z: mz,
 					color: markerColors[colorIdx] || 'Red',
 					showCoords: showCoords,
-					name: mName
+					name: mName,
+					dim: currentDimension === 2 ? 2 : 0
 				});
 			}
 		}
