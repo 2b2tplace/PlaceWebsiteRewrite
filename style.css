@@ -409,7 +409,7 @@ ui:has(.layers:not(.open)) .layersettings {
   border-top-right-radius: 5px;
 }
 
-.rightClick .item:nth-last-child(2) {
+.rightClick .item:nth-last-child(3) {
   border-radius: 15px;
   border-top-left-radius: 5px;
   border-top-right-radius: 5px;

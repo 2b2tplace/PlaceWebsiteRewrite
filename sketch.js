@@ -8,6 +8,8 @@ let camera = { x: 0, y: 0, zoom: 0.004 };
 let targetCam = { x: null, y: null, zoom: null };
 let rightClickCoords = { x: 0, z: 0 };
 let intendedCamZoom = 0.004;
+let inertiaVel = { x: 0, y: 0 };
+let friction = 0.9;
 let tileCache = {};
 let cameraVel = 0;
 let isTrackpad = false;
@@ -921,6 +923,8 @@ function draw() {
 	if (isDraggingMap && mouseButton === LEFT) {
 		camera.x = originalCameraX + ((originalMouseX - mouseX) / camera.zoom);
 		camera.y = originalCameraY + ((originalMouseY - mouseY) / camera.zoom);
+		inertiaVel.x = (pmouseX - mouseX) / camera.zoom;
+		inertiaVel.y = (pmouseY - mouseY) / camera.zoom;
 	}
 
 	background('black');
@@ -1197,6 +1201,7 @@ function mousePressed(event) {
 		}
 
 		isDraggingMap = true;
+		inertiaVel = { x: 0, y: 0 };
 		originalMouseX = mouseX;
 		originalMouseY = mouseY;
 		originalCameraX = camera.x;
@@ -1258,6 +1263,17 @@ function update() {
 		}
 		cameraVel = 0;
 	} else if (!isTrackpad) {
+		if (!isDraggingMap) {
+            camera.x += inertiaVel.x;
+            camera.y += inertiaVel.y;
+
+            inertiaVel.x *= friction;
+            inertiaVel.y *= friction;
+
+            if (Math.abs(inertiaVel.x) < 0.01) inertiaVel.x = 0;
+            if (Math.abs(inertiaVel.y) < 0.01) inertiaVel.y = 0;
+        }
+
 		if (Date.now() - timeOfLastPan > 50) {
 			const scroll = Math.abs(mouseScrollY) < 50 ? mouseScrollY * 10 : mouseScrollY;
 
