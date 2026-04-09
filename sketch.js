@@ -1198,6 +1198,28 @@ function mousePressed(event) {
 		if (activeHoveredMarker && mouseButton === LEFT) {
 			targetCam = { x: activeHoveredMarker.x, y: activeHoveredMarker.z, zoom: 1.1 };
 			return;
+		} else if (mouseButton === LEFT) {
+			const wMouse = getWorldMouse();
+			const currentScale = 1 / camera.zoom;
+			const iconHitbox = 32 * currentScale;
+			if (atlasLocations.length > 0) {
+				cachedClusters = getClusters();
+				lastClusterCamX = camera.x;
+				lastClusterCamY = camera.y;
+				lastClusterZoom = camera.zoom;
+				lastClusterDim = currentDimension;
+
+				for (let cluster of cachedClusters) {
+					if (cluster.count < 2) {
+						let loc = cluster.original;
+						if (wMouse.x >= loc.x - iconHitbox / 2 && wMouse.x <= loc.x + iconHitbox / 2 &&
+							wMouse.y >= loc.z - iconHitbox && wMouse.y <= loc.z) {
+							targetCam = { x: loc.x, y: loc.z, zoom: 1.1 };
+							return;
+						}
+					}
+				}
+			}
 		}
 
 		isDraggingMap = true;
@@ -1264,15 +1286,15 @@ function update() {
 		cameraVel = 0;
 	} else if (!isTrackpad) {
 		if (!isDraggingMap) {
-            camera.x += inertiaVel.x;
-            camera.y += inertiaVel.y;
+			camera.x += inertiaVel.x;
+			camera.y += inertiaVel.y;
 
-            inertiaVel.x *= friction;
-            inertiaVel.y *= friction;
+			inertiaVel.x *= friction;
+			inertiaVel.y *= friction;
 
-            if (Math.abs(inertiaVel.x) < 0.01) inertiaVel.x = 0;
-            if (Math.abs(inertiaVel.y) < 0.01) inertiaVel.y = 0;
-        }
+			if (Math.abs(inertiaVel.x) < 0.01) inertiaVel.x = 0;
+			if (Math.abs(inertiaVel.y) < 0.01) inertiaVel.y = 0;
+		}
 
 		if (Date.now() - timeOfLastPan > 50) {
 			const scroll = Math.abs(mouseScrollY) < 50 ? mouseScrollY * 10 : mouseScrollY;
