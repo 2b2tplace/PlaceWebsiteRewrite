@@ -418,6 +418,13 @@ function setup() {
 				setTimeout(() => {
 					if (searchInput) {
 						searchInput.value = details.search;
+
+						const sIcon = document.getElementById('searchIcon');
+						if (sIcon && searchInput.value.length > 0) {
+							changeIcon(sIcon, 'close');
+							sIcon.style.cursor = 'pointer';
+						}
+
 						fetchAtlasLocations(details.search);
 					}
 				}, 100);
@@ -434,7 +441,24 @@ function setup() {
 
 	const searchBar = document.getElementById('searchBar');
 	searchBar.innerHTML = '';
-	searchBar.appendChild(createIcon('search'));
+	const searchIcon = createIcon('search');
+	searchIcon.id = 'searchIcon';
+	searchIcon.style.cursor = 'default';
+	searchBar.appendChild(searchIcon);
+
+	searchIcon.addEventListener('click', () => {
+		if (searchInput.value.length > 0) {
+			searchInput.value = '';
+			changeIcon(searchIcon, 'search');
+			searchIcon.style.cursor = 'default';
+
+			atlasLocations = [];
+			tempMarkers = tempMarkers.filter(m => !m.isSearch);
+
+			renderSuggestions();
+			searchInput.focus();
+		}
+	});
 
 	searchInput = document.createElement('input');
 	searchInput.type = 'text';
@@ -660,6 +684,16 @@ function setup() {
 	searchInput.addEventListener('input', () => {
 		isFilterMode = false;
 		selectedSuggestionIndex = 0;
+
+		const sIcon = document.getElementById('searchIcon');
+		if (searchInput.value.length > 0) {
+			changeIcon(sIcon, 'close');
+			sIcon.style.cursor = 'pointer';
+		} else {
+			changeIcon(sIcon, 'search');
+			sIcon.style.cursor = 'default';
+		}
+
 		fetchAtlasLocations(searchInput.value);
 		renderSuggestions();
 	});
@@ -715,9 +749,14 @@ function setup() {
 			addRecentSearch(searchInput.value);
 		}
 		setTimeout(() => {
-			if (searchPanel.matches(':hover') || (document.getElementById('filterIcon') && document.getElementById('filterIcon').matches(':hover'))) {
+			const isOverPanel = searchPanel.matches(':hover');
+			const isOverFilter = document.getElementById('filterIcon')?.matches(':hover');
+			const isOverSearchIcon = document.getElementById('searchIcon')?.matches(':hover');
+
+			if (isOverPanel || isOverFilter || isOverSearchIcon) {
 				return;
 			}
+
 			searchPanel.classList.remove('open');
 			isFilterMode = false;
 		}, 150);
@@ -962,6 +1001,12 @@ function addRecentSearch(queryOrSug) {
 
 function selectSuggestion(sug) {
 	addRecentSearch(sug);
+
+	const sIcon = document.getElementById('searchIcon');
+	if (sIcon) {
+		changeIcon(sIcon, 'close');
+		sIcon.style.cursor = 'pointer';
+	}
 
 	if (sug.type === 'recent_query') {
 		searchInput.value = sug.text;
