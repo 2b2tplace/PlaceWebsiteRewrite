@@ -1284,6 +1284,9 @@ function openMarkerEditDialog(marker = null) {
 	};
 }
 
+const LOD_ADD = Math.log2(1.33);
+const LOD_MULTIPLY = 1.08;
+
 function draw() {
 	update();
 
@@ -1310,7 +1313,8 @@ function draw() {
 
 	if (cameraVel >= 0) {
 		// lod = Math.floor(-Math.log2(camera.zoom / (Math.pow(camera.zoom, -0.1) * 1.5)));
-		lod = Math.floor(-Math.log2(camera.zoom));
+		// lod = Math.floor(-Math.log2(camera.zoom));
+        lod = Math.floor(LOD_ADD - LOD_MULTIPLY * Math.log2(camera.zoom));
 		lod = Math.max(0, Math.min(10, lod));
 	}
 
