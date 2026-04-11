@@ -1310,7 +1310,7 @@ function draw() {
 
 	if (cameraVel >= 0) {
 		// lod = Math.floor(-Math.log2(camera.zoom / (Math.pow(camera.zoom, -0.1) * 1.5)));
-		lod = Math.floor(-Math.log2(camera.zoom ** 3 / 1));
+		lod = Math.floor(-Math.log2(camera.zoom));
 		lod = Math.max(0, Math.min(10, lod));
 	}
 
