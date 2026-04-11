@@ -1285,7 +1285,7 @@ function openMarkerEditDialog(marker = null) {
 }
 
 const LOD_ADD = Math.log2(1.33);
-const LOD_MULTIPLY = 1.08;
+const LOD_MULTIPLY = 1.06;
 
 function draw() {
 	update();
