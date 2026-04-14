@@ -2403,6 +2403,9 @@ function encodeURL({ lat = Math.round(camera.x), lng = Math.round(camera.y), cam
 							} else if (setting.type === 'slider') {
 								const val = Math.max(0, Math.min(1, setting.value));
 								stream.writeBits(Math.round(val * 255), 8);
+							} else if (setting.type === 'hueslider') {
+								const val = Math.max(0, Math.min(1, setting.value));
+								stream.writeBits(Math.round(val * 255), 8);
 							}
 						}
 					}
@@ -2471,6 +2474,8 @@ function decodeURL(base64String) {
 							if (type === 'toggle') {
 								val = stream.readBits(1) === 1;
 							} else if (type === 'slider') {
+								val = stream.readBits(8) / 255;
+							} else if (type === 'hueslider') {
 								val = stream.readBits(8) / 255;
 							}
 						}
