@@ -54,7 +54,7 @@ let layers = {
 		type: 'newchunks',
 		settings: {
 			Opacity: { icon: "opacity", type: "slider", value: 0.5, defaultValue: 0.5 },
-			Hue: { icon: "opacity", type: "hueslider", value: 0, defaultValue: 0 }
+			Hue: { icon: "brush", type: "hueslider", value: 0, defaultValue: 0 }
 		}
 	}
 }
