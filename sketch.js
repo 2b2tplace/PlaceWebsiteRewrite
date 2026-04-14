@@ -28,7 +28,8 @@ let changeListeners = [];
 let currentLayerSettings;
 let poppins;
 let debugGrid = false;
-let layerBuffer;
+const tileTintCanvas = document.createElement('canvas');
+const tileTintCtx = tileTintCanvas.getContext('2d');
 let layers = {
 	"World": {
 		icon: "world",
@@ -213,7 +214,6 @@ function preload() {
 
 function setup() {
 	createCanvas(windowWidth, windowHeight, WEBGL);
-	layerBuffer = createGraphics(windowWidth, windowHeight);
 	textFont(poppins);
 	imageMode(CORNER);
 
@@ -1419,35 +1419,13 @@ function draw() {
 	}
 
 	if (layers["New Chunks"].visible) {
-		layerBuffer.clear();
-		layerBuffer.noSmooth();
-		layerBuffer.push();
-		layerBuffer.translate(width / 2, height / 2);
-		layerBuffer.scale(camera.zoom);
-		layerBuffer.translate(-camera.x, -camera.y);
+		push();
+		opacity(layers["New Chunks"].settings.Opacity.value);
 		tilesToDraw.forEach((tile) => {
 			const drawX = Math.floor(tile.tx * tileSize);
 			const drawY = Math.floor(tile.ty * tileSize);
-			drawTile(tile.tx, tile.ty, lod, drawX, drawY, Math.floor(tileSize), !isFastMoving, false, dynamicDwell, 'newchunks', layerBuffer);
+			drawTile(tile.tx, tile.ty, lod, drawX, drawY, Math.floor(tileSize), !isFastMoving, false, dynamicDwell, 'newchunks');
 		});
-		layerBuffer.pop();
-
-		layerBuffer.push();
-		layerBuffer.drawingContext.globalCompositeOperation = 'source-atop';
-		layerBuffer.fill(0, 0, 255, 255);
-		layerBuffer.noStroke();
-		layerBuffer.rect(0, 0, width, height); 
-		layerBuffer.pop();
-
-		push();
-		opacity(layers["New Chunks"].settings.Opacity.value);
-
-		const invW = width / camera.zoom;
-		const invH = height / camera.zoom;
-		const invX = camera.x - (width / 2) / camera.zoom;
-		const invY = camera.y - (height / 2) / camera.zoom;
-		
-		image(layerBuffer, invX, invY, invW, invH);
 		pop();
 	}
 
@@ -1775,7 +1753,6 @@ function windowResized() {
 	let tempCamX = camera.x;
 	let tempCamY = camera.y;
 	resizeCanvas(windowWidth, windowHeight);
-	if (layerBuffer) layerBuffer.resizeCanvas(windowWidth, windowHeight);
 	camera.x = tempCamX;
 	camera.y = tempCamY;
 }
@@ -1826,7 +1803,24 @@ async function loadTile(thisLod, tx, ty, allowLoading = true) {
 
 		let bitmapNewChunks = null;
 		if (resNewChunks && resNewChunks.ok) {
-			try { bitmapNewChunks = await createImageBitmap(await resNewChunks.blob()); } catch (err) { }
+			try {
+				const rawBitmap = await createImageBitmap(await resNewChunks.blob());
+
+				if (tileTintCanvas.width !== rawBitmap.width) tileTintCanvas.width = rawBitmap.width;
+				if (tileTintCanvas.height !== rawBitmap.height) tileTintCanvas.height = rawBitmap.height;
+
+				tileTintCtx.globalCompositeOperation = 'source-over';
+				tileTintCtx.clearRect(0, 0, tileTintCanvas.width, tileTintCanvas.height);
+				tileTintCtx.drawImage(rawBitmap, 0, 0);
+
+				tileTintCtx.globalCompositeOperation = 'source-atop';
+				tileTintCtx.fillStyle = 'rgba(0, 0, 255, 1)';
+				tileTintCtx.fillRect(0, 0, tileTintCanvas.width, tileTintCanvas.height);
+
+				bitmapNewChunks = await createImageBitmap(tileTintCanvas);
+
+				rawBitmap.close();
+			} catch (err) { }
 		}
 
 		if (!bitmapBase && !bitmapOverlay && !bitmapNewChunks) throw new Error("No imagery found");
@@ -1916,7 +1910,7 @@ function drawTile(tx, ty, lod, x, y, size, loadIfUncached = true, loadingForLowQ
 				}
 				return;
 			} else if (layer === 'newchunks') {
-				if (tile.imgNewChunks) targetCtx.image(tile.imgNewChunks, x, y, size, size);
+				if (tile.imgNewChunks) image(tile.imgNewChunks, x, y, size, size);
 				return;
 			}
 		} else {
