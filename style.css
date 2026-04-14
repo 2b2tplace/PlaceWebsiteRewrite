@@ -141,6 +141,15 @@ ui {
   transform: translateX(-50%);
 }
 
+.hue-thumb {
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  background: url(/icon/huethumb.png);
+  pointer-events: none;
+  transform: translateX(-50%);
+}
+
 .slider {
   display: block;
   height: 20px;
@@ -285,7 +294,7 @@ ui {
 
 .layers.open {
   height: unset;
-  width: 300px;
+  width: 350px;
   padding: 10px 15px;
 }
 
@@ -361,6 +370,7 @@ ui:has(.layers:not(.open)) .layersettings {
   display: flex;
   align-items: center;
   gap: 10px;
+  width: 100%;
 }
 
 .layersettings .setting .icon.right {

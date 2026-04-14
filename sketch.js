@@ -53,7 +53,8 @@ let layers = {
 		visible: false, defaultVisible: false,
 		type: 'newchunks',
 		settings: {
-			Opacity: { icon: "opacity", type: "slider", value: 0.5, defaultValue: 0.5 }
+			Opacity: { icon: "opacity", type: "slider", value: 0.5, defaultValue: 0.5 },
+			Hue: { icon: "opacity", type: "hueslider", value: 0, defaultValue: 0 }
 		}
 	}
 }
@@ -905,6 +906,64 @@ function setup() {
 	});
 }
 
+function hsvToRgb(h, s, v) {
+	let r, g, b;
+	let i = Math.floor(h * 6);
+	let f = h * 6 - i;
+	let p = v * (1 - s);
+	let q = v * (1 - f * s);
+	let t = v * (1 - (1 - f) * s);
+	switch (i % 6) {
+		case 0: r = v, g = t, b = p; break;
+		case 1: r = q, g = v, b = p; break;
+		case 2: r = p, g = v, b = t; break;
+		case 3: r = p, g = q, b = v; break;
+		case 4: r = t, g = p, b = v; break;
+		case 5: r = v, g = p, b = q; break;
+	}
+	return [Math.round(r * 255), Math.round(g * 255), Math.round(b * 255)];
+}
+
+let retintQueue = new Set();
+let isRetintingQueue = false;
+
+async function processRetintQueue() {
+	if (isRetintingQueue) return;
+	isRetintingQueue = true;
+
+	while (retintQueue.size > 0) {
+		const tile = retintQueue.values().next().value;
+		retintQueue.delete(tile);
+
+		const targetHue = layers["New Chunks"].settings.Hue.value;
+
+		if (tile.imgNewChunks && tile.newChunksHue !== targetHue) {
+			try {
+				if (tileTintCanvas.width !== tile.imgNewChunks.width) tileTintCanvas.width = tile.imgNewChunks.width;
+				if (tileTintCanvas.height !== tile.imgNewChunks.height) tileTintCanvas.height = tile.imgNewChunks.height;
+
+				tileTintCtx.globalCompositeOperation = 'source-over';
+				tileTintCtx.clearRect(0, 0, tileTintCanvas.width, tileTintCanvas.height);
+				tileTintCtx.drawImage(tile.imgNewChunks, 0, 0);
+
+				const [r, g, b] = hsvToRgb(targetHue, 1, 1);
+				tileTintCtx.globalCompositeOperation = 'source-atop';
+				tileTintCtx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+				tileTintCtx.fillRect(0, 0, tileTintCanvas.width, tileTintCanvas.height);
+
+				const newBitmap = await createImageBitmap(tileTintCanvas);
+
+				tile.imgNewChunks.close();
+				tile.imgNewChunks = newBitmap;
+				tile.newChunksHue = targetHue;
+			} catch (e) {
+			}
+		}
+		tile.isRetinting = false;
+	}
+	isRetintingQueue = false;
+}
+
 function renderFilterPanel() {
 	searchPanel.innerHTML = '';
 	searchPanel.classList.add('open');
@@ -1152,6 +1211,19 @@ function configureLayerSettings(layerName, layer) {
 		} else if (settingObj.type == 'slider') {
 			let settingslider = document.createElement("img");
 			settingslider.src = '/icon/slider.png';
+			settingslider.className = 'slider'
+			layerSettingDiv.appendChild(settingslider);
+			setupSlider(settingslider, settingObj, 0, 1);
+
+			updateOnChange(() => settingObj.value, (val) => {
+				setReset.style.opacity = (val !== settingObj.defaultValue) ? 1 : 0.5;
+				setReset.style.cursor = (val !== settingObj.defaultValue) ? 'pointer' : 'default';
+			});
+			setReset.style.opacity = (settingObj.value !== settingObj.defaultValue) ? 1 : 0.5;
+			setReset.style.cursor = (settingObj.value !== settingObj.defaultValue) ? 'pointer' : 'default';
+		} else if (settingObj.type == 'hueslider') {
+			let settingslider = document.createElement("img");
+			settingslider.src = '/icon/hueslider.png';
 			settingslider.className = 'slider'
 			layerSettingDiv.appendChild(settingslider);
 			setupSlider(settingslider, settingObj, 0, 1);
@@ -1802,6 +1874,8 @@ async function loadTile(thisLod, tx, ty, allowLoading = true) {
 		}
 
 		let bitmapNewChunks = null;
+		let hueValue = layers["New Chunks"].settings.Hue ? layers["New Chunks"].settings.Hue.value : 0;
+
 		if (resNewChunks && resNewChunks.ok) {
 			try {
 				const rawBitmap = await createImageBitmap(await resNewChunks.blob());
@@ -1813,15 +1887,26 @@ async function loadTile(thisLod, tx, ty, allowLoading = true) {
 				tileTintCtx.clearRect(0, 0, tileTintCanvas.width, tileTintCanvas.height);
 				tileTintCtx.drawImage(rawBitmap, 0, 0);
 
+				const [r, g, b] = hsvToRgb(hueValue, 1, 1);
 				tileTintCtx.globalCompositeOperation = 'source-atop';
-				tileTintCtx.fillStyle = 'rgba(0, 0, 255, 1)';
+				tileTintCtx.fillStyle = `rgb(${r}, ${g}, ${b})`;
 				tileTintCtx.fillRect(0, 0, tileTintCanvas.width, tileTintCanvas.height);
 
 				bitmapNewChunks = await createImageBitmap(tileTintCanvas);
-
 				rawBitmap.close();
 			} catch (err) { }
 		}
+
+		tileCache[key] = {
+			imgBase: bitmapBase,
+			imgOverlay: bitmapOverlay,
+			imgNewChunks: bitmapNewChunks,
+			newChunksHue: hueValue,
+			isRetinting: false,
+			loaded: true,
+			loading: false,
+			lastAccessed: Date.now()
+		};
 
 		if (!bitmapBase && !bitmapOverlay && !bitmapNewChunks) throw new Error("No imagery found");
 
@@ -1833,10 +1918,6 @@ async function loadTile(thisLod, tx, ty, allowLoading = true) {
 			loading: false,
 			lastAccessed: Date.now()
 		};
-
-		if (thisLod < lod) {
-			console.log(lod, thisLod);
-		}
 
 	} catch (e) {
 		if (e.name === 'AbortError') return;
@@ -1910,7 +1991,16 @@ function drawTile(tx, ty, lod, x, y, size, loadIfUncached = true, loadingForLowQ
 				}
 				return;
 			} else if (layer === 'newchunks') {
-				if (tile.imgNewChunks) image(tile.imgNewChunks, x, y, size, size);
+				if (tile.imgNewChunks) {
+					const targetHue = layers["New Chunks"].settings.Hue.value;
+					if (tile.newChunksHue !== targetHue && !tile.isRetinting) {
+						tile.isRetinting = true;
+						retintQueue.add(tile);
+						processRetintQueue();
+					}
+
+					image(tile.imgNewChunks, x, y, size, size);
+				}
 				return;
 			}
 		} else {
@@ -1948,7 +2038,17 @@ function drawTile(tx, ty, lod, x, y, size, loadIfUncached = true, loadingForLowQ
 					if (pTile.imgOverlay) targetCtx.image(pTile.imgOverlay, x, y, size, size, sX, sY, sW, sH);
 					return;
 				} else if (layer === 'newchunks') {
-					if (pTile.imgNewChunks) targetCtx.image(pTile.imgNewChunks, x, y, size, size, sX, sY, sW, sH);
+					if (pTile.imgNewChunks) {
+						const targetHue = layers["New Chunks"].settings.Hue.value;
+
+						if (pTile.newChunksHue !== targetHue && !pTile.isRetinting) {
+							pTile.isRetinting = true;
+							retintQueue.add(pTile);
+							processRetintQueue();
+						}
+
+						image(pTile.imgNewChunks, x, y, size, size, sX, sY, sW, sH);
+					}
 					return;
 				}
 			} else {
@@ -2038,7 +2138,6 @@ window.addEventListener('keydown', (e) => {
 	}
 	if (e.shiftKey && e.key.toLowerCase() === 'g') {
 		debugGrid = !debugGrid;
-		console.log("debug grid:", debugGrid ? "ON" : "OFF");
 	}
 	if ((e.key === 'Delete' || e.key === 'Backspace') && activeHoveredMarker) {
 		tempMarkers = tempMarkers.filter(m => m !== activeHoveredMarker);
@@ -2130,6 +2229,7 @@ function setupSlider(imgElement, settingObj, min = 0, max = 1) {
 
 	const thumb = createIcon('sliderthumb');
 	thumb.classList.add('slider-thumb');
+	if (settingObj.type == 'hueslider') changeIcon(thumb, 'huethumb');
 
 	imgElement.parentNode.insertBefore(wrapper, imgElement);
 	wrapper.appendChild(imgElement);
