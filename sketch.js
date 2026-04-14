@@ -1,3 +1,5 @@
+new Q5("global");
+
 let originalMouseX, originalMouseY, originalCameraX, originalCameraY;
 let lastCamX = 0, lastCamY = 0;
 let lastDisplayX = null, lastDisplayY = null;
@@ -26,6 +28,7 @@ let changeListeners = [];
 let currentLayerSettings;
 let poppins;
 let debugGrid = false;
+let layerBuffer;
 let layers = {
 	"World": {
 		icon: "world",
@@ -210,6 +213,7 @@ function preload() {
 
 function setup() {
 	createCanvas(windowWidth, windowHeight, WEBGL);
+	layerBuffer = createGraphics(windowWidth, windowHeight);
 	textFont(poppins);
 	imageMode(CORNER);
 
@@ -1314,7 +1318,7 @@ function draw() {
 	if (cameraVel >= 0) {
 		// lod = Math.floor(-Math.log2(camera.zoom / (Math.pow(camera.zoom, -0.1) * 1.5)));
 		// lod = Math.floor(-Math.log2(camera.zoom));
-        lod = Math.floor(LOD_ADD - LOD_MULTIPLY * Math.log2(camera.zoom));
+		lod = Math.floor(LOD_ADD - LOD_MULTIPLY * Math.log2(camera.zoom));
 		lod = Math.max(0, Math.min(10, lod));
 	}
 
@@ -1415,13 +1419,35 @@ function draw() {
 	}
 
 	if (layers["New Chunks"].visible) {
-		push();
-		opacity(layers["New Chunks"].settings.Opacity.value);
+		layerBuffer.clear();
+		layerBuffer.noSmooth();
+		layerBuffer.push();
+		layerBuffer.translate(width / 2, height / 2);
+		layerBuffer.scale(camera.zoom);
+		layerBuffer.translate(-camera.x, -camera.y);
 		tilesToDraw.forEach((tile) => {
 			const drawX = Math.floor(tile.tx * tileSize);
 			const drawY = Math.floor(tile.ty * tileSize);
-			drawTile(tile.tx, tile.ty, lod, drawX, drawY, Math.floor(tileSize), !isFastMoving, false, dynamicDwell, 'newchunks');
+			drawTile(tile.tx, tile.ty, lod, drawX, drawY, Math.floor(tileSize), !isFastMoving, false, dynamicDwell, 'newchunks', layerBuffer);
 		});
+		layerBuffer.pop();
+
+		layerBuffer.push();
+		layerBuffer.drawingContext.globalCompositeOperation = 'source-atop';
+		layerBuffer.fill(0, 0, 255, 255);
+		layerBuffer.noStroke();
+		layerBuffer.rect(0, 0, width, height); 
+		layerBuffer.pop();
+
+		push();
+		opacity(layers["New Chunks"].settings.Opacity.value);
+
+		const invW = width / camera.zoom;
+		const invH = height / camera.zoom;
+		const invX = camera.x - (width / 2) / camera.zoom;
+		const invY = camera.y - (height / 2) / camera.zoom;
+		
+		image(layerBuffer, invX, invY, invW, invH);
 		pop();
 	}
 
@@ -1749,6 +1775,7 @@ function windowResized() {
 	let tempCamX = camera.x;
 	let tempCamY = camera.y;
 	resizeCanvas(windowWidth, windowHeight);
+	if (layerBuffer) layerBuffer.resizeCanvas(windowWidth, windowHeight);
 	camera.x = tempCamX;
 	camera.y = tempCamY;
 }
@@ -1831,7 +1858,7 @@ async function loadTile(thisLod, tx, ty, allowLoading = true) {
 	}
 }
 
-function drawTile(tx, ty, lod, x, y, size, loadIfUncached = true, loadingForLowQual = false, currentDwell = 500, layer = 'base') {
+function drawTile(tx, ty, lod, x, y, size, loadIfUncached = true, loadingForLowQual = false, currentDwell = 500, layer = 'base', targetCtx = window) {
 	const speedThreshold = Math.min(6, Math.floor(smoothCamVel / 5));
 	const effectiveLod = Math.max(lod, speedThreshold);
 	const isAllowedToLoad = loadIfUncached && (lod >= effectiveLod);
@@ -1858,22 +1885,22 @@ function drawTile(tx, ty, lod, x, y, size, loadIfUncached = true, loadingForLowQ
 		activeTileKeys.add(key);
 
 		if (layer === 'base') {
-			push();
+			targetCtx.push();
 			if (tile.loaded && !tile.failed) {
-				fill('#ff00003a');
+				targetCtx.fill('#ff00003a');
 			} else if (tile.loading) {
-				fill('#2bff0018');
+				targetCtx.fill('#2bff0018');
 			} else {
-				noFill();
+				targetCtx.noFill();
 			}
-			tile.loading ? stroke(255, 255, 0) : stroke(255, 0, 0);
-			strokeWeight(1 / camera.zoom);
-			rect(x, y, size, size);
-			noStroke();
-			fill('red');
-			textSize(12 / camera.zoom);
-			text(`${tx}, ${ty}\nLOD: ${lod}`, x + (10 / camera.zoom), y + (20 / camera.zoom));
-			pop();
+			tile.loading ? targetCtx.stroke(255, 255, 0) : targetCtx.stroke(255, 0, 0);
+			targetCtx.strokeWeight(1 / camera.zoom);
+			targetCtx.rect(x, y, size, size);
+			targetCtx.noStroke();
+			targetCtx.fill('red');
+			targetCtx.textSize(12 / camera.zoom);
+			targetCtx.text(`${tx}, ${ty}\nLOD: ${lod}`, x + (10 / camera.zoom), y + (20 / camera.zoom));
+			targetCtx.pop();
 		}
 	}
 
@@ -1881,13 +1908,15 @@ function drawTile(tx, ty, lod, x, y, size, loadIfUncached = true, loadingForLowQ
 		activeTileKeys.add(key);
 		if (!debugGrid) {
 			if (layer === 'base') {
-				if (tile.imgBase) image(tile.imgBase, x, y, size, size);
+				if (tile.imgBase) targetCtx.image(tile.imgBase, x, y, size, size);
 				return;
 			} else if (layer === 'overlay') {
-				if (tile.imgOverlay) image(tile.imgOverlay, x, y, size, size);
+				if (tile.imgOverlay) {
+					targetCtx.image(tile.imgOverlay, x, y, size, size);
+				}
 				return;
 			} else if (layer === 'newchunks') {
-				if (tile.imgNewChunks) image(tile.imgNewChunks, x, y, size, size);
+				if (tile.imgNewChunks) targetCtx.image(tile.imgNewChunks, x, y, size, size);
 				return;
 			}
 		} else {
@@ -1919,13 +1948,13 @@ function drawTile(tx, ty, lod, x, y, size, loadIfUncached = true, loadingForLowQ
 
 			if (!debugGrid) {
 				if (layer === 'base') {
-					if (pTile.imgBase) image(pTile.imgBase, x, y, size, size, sX, sY, sW, sH);
+					if (pTile.imgBase) targetCtx.image(pTile.imgBase, x, y, size, size, sX, sY, sW, sH);
 					return;
 				} else if (layer === 'overlay') {
-					if (pTile.imgOverlay) image(pTile.imgOverlay, x, y, size, size, sX, sY, sW, sH);
+					if (pTile.imgOverlay) targetCtx.image(pTile.imgOverlay, x, y, size, size, sX, sY, sW, sH);
 					return;
 				} else if (layer === 'newchunks') {
-					if (pTile.imgNewChunks) image(pTile.imgNewChunks, x, y, size, size, sX, sY, sW, sH);
+					if (pTile.imgNewChunks) targetCtx.image(pTile.imgNewChunks, x, y, size, size, sX, sY, sW, sH);
 					return;
 				}
 			} else {
@@ -1943,22 +1972,22 @@ function drawTile(tx, ty, lod, x, y, size, loadIfUncached = true, loadingForLowQ
 
 		let cKey = tileKey(childTx, childTy, childLod, currentDimension);
 		if (tileCache[cKey] && tileCache[cKey].loaded) {
-			drawTile(childTx, childTy, childLod, x, y, childSize, false, true, currentDwell, layer);
+			drawTile(childTx, childTy, childLod, x, y, childSize, false, true, currentDwell, layer, targetCtx);
 		}
 
 		cKey = tileKey(childTx + 1, childTy, childLod, currentDimension);
 		if (tileCache[cKey] && tileCache[cKey].loaded) {
-			drawTile(childTx + 1, childTy, childLod, x + childSize, y, childSize, false, true, currentDwell, layer);
+			drawTile(childTx + 1, childTy, childLod, x + childSize, y, childSize, false, true, currentDwell, layer, targetCtx);
 		}
 
 		cKey = tileKey(childTx, childTy + 1, childLod, currentDimension);
 		if (tileCache[cKey] && tileCache[cKey].loaded) {
-			drawTile(childTx, childTy + 1, childLod, x, y + childSize, childSize, false, true, currentDwell, layer);
+			drawTile(childTx, childTy + 1, childLod, x, y + childSize, childSize, false, true, currentDwell, layer, targetCtx);
 		}
 
 		cKey = tileKey(childTx + 1, childTy + 1, childLod, currentDimension);
 		if (tileCache[cKey] && tileCache[cKey].loaded) {
-			drawTile(childTx + 1, childTy + 1, childLod, x + childSize, y + childSize, childSize, false, true, currentDwell, layer);
+			drawTile(childTx + 1, childTy + 1, childLod, x + childSize, y + childSize, childSize, false, true, currentDwell, layer, targetCtx);
 		}
 	}
 }
