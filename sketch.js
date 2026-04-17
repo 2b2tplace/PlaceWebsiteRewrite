@@ -54,7 +54,7 @@ let layers = {
 		type: 'newchunks',
 		settings: {
 			Opacity: { icon: "opacity", type: "slider", value: 0.5, defaultValue: 0.5 },
-			Hue: { icon: "brush", type: "hueslider", value: 0, defaultValue: 0 }
+			Color: { icon: "brush", type: "colorpicker", value: { r: 255, g: 0, b: 0, h: 0, s: 1, v: 1 }, defaultValue: { r: 255, g: 0, b: 0, h: 0, s: 1, v: 1 } }
 		}
 	}
 }
@@ -905,86 +905,218 @@ function setup() {
 		copyLinkBody.appendChild(item);
 	});
 
-	// setupColorPickerUI();
+	setupColorPickerUI();
+	setupColorPickerTabs()
+}
+
+function rgbToHsv(r, g, b) {
+	r /= 255; g /= 255; b /= 255;
+	let max = Math.max(r, g, b), min = Math.min(r, g, b);
+	let h, s, v = max;
+	let d = max - min;
+	s = max === 0 ? 0 : d / max;
+	if (max === min) h = 0;
+	else {
+		switch (max) {
+			case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+			case g: h = (b - r) / d + 2; break;
+			case b: h = (r - g) / d + 4; break;
+		} h /= 6;
+	}
+	return [h, s, v];
+}
+
+function hslToRgb(h, s, l) {
+	h /= 360; s /= 100; l /= 100;
+	let r, g, b;
+	if (s === 0) r = g = b = l;
+	else {
+		const hue2rgb = (p, q, t) => {
+			if (t < 0) t += 1; if (t > 1) t -= 1;
+			if (t < 1 / 6) return p + (q - p) * 6 * t;
+			if (t < 1 / 2) return q;
+			if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
+			return p;
+		};
+		const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+		const p = 2 * l - q;
+		r = hue2rgb(p, q, h + 1 / 3); g = hue2rgb(p, q, h); b = hue2rgb(p, q, h - 1 / 3);
+	}
+	return [Math.round(r * 255), Math.round(g * 255), Math.round(b * 255)];
+}
+
+function setupColorPickerTabs() {
+	const tabs = document.querySelectorAll('.picker .tablist .tab');
+	const gridBody = document.getElementById('grid');
+	const slidersBody = document.getElementById('sliders');
+
+	if (!tabs.length || !gridBody || !slidersBody) return;
+
+	const bodies = [gridBody, slidersBody];
+
+	bodies.forEach((body, index) => {
+		body.style.display = index === 0 ? '' : 'none';
+	});
+
+	tabs.forEach((tab, index) => {
+		tab.addEventListener('click', () => {
+			tabs.forEach(t => t.classList.remove('selected'));
+			tab.classList.add('selected');
+
+			bodies.forEach((body, i) => {
+				body.style.display = i === index ? '' : 'none';
+			});
+		});
+	});
 }
 
 function setupColorPickerUI() {
 	const colourPicker = document.querySelector('.colourPicker');
 	const colourSelect = document.querySelector('.colourPaletteSelect');
-
 	if (!colourPicker || !colourSelect) return;
 
-	const COLS = 12;
-	const ROWS = 10;
-	let isDraggingPicker = false;
+	window.currentColorMode = 'RGB';
+	window.currentSelectedColor = { r: 255, g: 0, b: 0, h: 0, s: 1, v: 1 };
 
+	const closeBtn = document.querySelector('.picker .heading .title .icon');
+	if (closeBtn) closeBtn.addEventListener('click', () => { document.querySelector('.picker').style.display = 'none'; });
+
+	const gridPreview = document.getElementById('grid-color-preview');
+	const slidersPreview = document.getElementById('sliders-color-preview');
+
+	window.updateCurrentColor = function (newColor) {
+		window.currentSelectedColor = { ...newColor };
+		const previewRgb = `rgb(${newColor.r}, ${newColor.g}, ${newColor.b})`;
+		if (gridPreview) gridPreview.style.backgroundColor = previewRgb;
+		if (slidersPreview) slidersPreview.style.backgroundColor = previewRgb;
+
+		if (window.activeColorTarget) window.activeColorTarget(window.currentSelectedColor);
+		updateSlidersFromState();
+	};
+
+	window.syncPickerUI = function (colorObj) { window.updateCurrentColor(colorObj); };
+
+	// grid logic
+	const COLS = 12, ROWS = 10;
+	let isDraggingPicker = false;
 	function updatePickerSelection(e) {
 		const rect = colourPicker.getBoundingClientRect();
-
 		const clientX = e.touches ? e.touches[0].clientX : e.clientX;
 		const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-
-		let x = clientX - rect.left;
-		let y = clientY - rect.top;
-
-		x = Math.max(0, Math.min(rect.width - 0.1, x));
-		y = Math.max(0, Math.min(rect.height - 0.1, y));
+		let x = Math.max(0, Math.min(rect.width - 0.1, clientX - rect.left));
+		let y = Math.max(0, Math.min(rect.height - 0.1, clientY - rect.top));
 
 		const col = Math.floor(x / (rect.width / COLS));
 		const row = Math.floor(y / (rect.height / ROWS));
-
-		const cellWidth = rect.width / COLS;
-		const cellHeight = rect.height / ROWS;
-		const centerX = (col * cellWidth) + (cellWidth / 2);
-		const centerY = (row * cellHeight) + (cellHeight / 2);
+		const centerX = (col * (rect.width / COLS)) + ((rect.width / COLS) / 2);
+		const centerY = (row * (rect.height / ROWS)) + ((rect.height / ROWS) / 2);
 
 		const pickerUi = colourPicker.closest('.picker');
 		const pickerRect = pickerUi.getBoundingClientRect();
+		colourSelect.style.margin = '0px';
+		colourSelect.style.left = `${(rect.left - pickerRect.left) + centerX - 18}px`;
+		colourSelect.style.top = `${(rect.top - pickerRect.top) + centerY - 18}px`;
 
-		colourSelect.style.marginTop = '0px';
-		colourSelect.style.marginLeft = '0px';
-
-		const selectorWidth = 48;
-		const selectorHeight = 48;
-
-		const finalLeft = (rect.left - pickerRect.left) + centerX - (selectorWidth / 2);
-		const finalTop = (rect.top - pickerRect.top) + centerY - (selectorHeight / 2);
-
-		colourSelect.style.left = `${finalLeft}px`;
-		colourSelect.style.top = `${finalTop}px`;
-
-		let deducedColor = "";
+		let r, g, b;
 		if (row === 0) {
 			const lightness = Math.round(100 - (col / (COLS - 1)) * 100);
-			deducedColor = `hsl(0, 0%, ${lightness}%)`;
+			[r, g, b] = hslToRgb(0, 0, lightness);
 		} else {
-			const hue = (180 + col * 30) % 360;
+			const hue = (200 + col * 30) % 400;
 			const lightness = Math.round(20 + ((row - 1) / (ROWS - 2)) * 70);
-			deducedColor = `hsl(${hue}, 100%, ${lightness}%)`;
+			[r, g, b] = hslToRgb(hue, 100, lightness);
 		}
-
-		window.lastSelectedPickerColor = deducedColor;
+		let [h_val, s_val, v_val] = rgbToHsv(r, g, b);
+		window.updateCurrentColor({ r, g, b, h: h_val, s: s_val, v: v_val });
 	}
 
-	const startDrag = (e) => {
-		isDraggingPicker = true;
-		updatePickerSelection(e);
-		if (e.cancelable) e.preventDefault();
-	};
-	const doDrag = (e) => {
-		if (isDraggingPicker) updatePickerSelection(e);
-	};
-	const stopDrag = () => {
-		isDraggingPicker = false;
-	};
+	colourPicker.addEventListener('mousedown', (e) => { isDraggingPicker = true; updatePickerSelection(e); e.preventDefault(); });
+	window.addEventListener('mousemove', (e) => { if (isDraggingPicker) updatePickerSelection(e); });
+	window.addEventListener('mouseup', () => isDraggingPicker = false);
 
-	colourPicker.addEventListener('mousedown', startDrag);
-	window.addEventListener('mousemove', doDrag);
-	window.addEventListener('mouseup', stopDrag);
+	// slider logic
+	const toggleBtn = document.getElementById('toggleColorMode');
+	const labels = [document.querySelector('#slider-1-group .slider-label'), document.querySelector('#slider-2-group .slider-label'), document.querySelector('#slider-3-group .slider-label')];
+	const inputs = [document.getElementById('slider-1-input'), document.getElementById('slider-2-input'), document.getElementById('slider-3-input')];
+	const tracks = [document.getElementById('slider-1-track'), document.getElementById('slider-2-track'), document.getElementById('slider-3-track')];
+	const thumbs = tracks.map(t => t.querySelector('.custom-slider-thumb'));
 
-	colourPicker.addEventListener('touchstart', startDrag, { passive: false });
-	window.addEventListener('touchmove', doDrag, { passive: false });
-	window.addEventListener('touchend', stopDrag);
+	if (toggleBtn) {
+		toggleBtn.addEventListener('click', () => {
+			window.currentColorMode = window.currentColorMode === 'RGB' ? 'HSV' : 'RGB';
+			toggleBtn.innerText = `Switch to ${window.currentColorMode === 'RGB' ? 'HSV' : 'RGB'}`;
+			labels[0].innerText = window.currentColorMode === 'RGB' ? 'R' : 'H';
+			labels[1].innerText = window.currentColorMode === 'RGB' ? 'G' : 'S';
+			labels[2].innerText = window.currentColorMode === 'RGB' ? 'B' : 'V';
+			inputs[0].max = window.currentColorMode === 'RGB' ? 255 : 360;
+			inputs[1].max = window.currentColorMode === 'RGB' ? 255 : 100;
+			inputs[2].max = window.currentColorMode === 'RGB' ? 255 : 100;
+			updateSlidersFromState();
+		});
+	}
+
+	function updateSlidersFromState() {
+		const c = window.currentSelectedColor;
+		let vals = window.currentColorMode === 'RGB' ? [c.r, c.g, c.b] : [Math.round(c.h * 360), Math.round(c.s * 100), Math.round(c.v * 100)];
+
+		for (let i = 0; i < 3; i++) {
+			if (document.activeElement !== inputs[i]) inputs[i].value = vals[i];
+			const max = parseFloat(inputs[i].max) || 255;
+			thumbs[i].style.left = `${(vals[i] / max) * 100}%`;
+		}
+
+		if (window.currentColorMode === 'RGB') {
+			tracks[0].style.background = `linear-gradient(to right, rgb(0, ${c.g}, ${c.b}), rgb(255, ${c.g}, ${c.b}))`;
+			tracks[1].style.background = `linear-gradient(to right, rgb(${c.r}, 0, ${c.b}), rgb(${c.r}, 255, ${c.b}))`;
+			tracks[2].style.background = `linear-gradient(to right, rgb(${c.r}, ${c.g}, 0), rgb(${c.r}, ${c.g}, 255))`;
+		} else {
+			let hStops = [];
+			for (let i = 0; i <= 6; i++) {
+				let [r, g, b] = hsvToRgb(i / 6, c.s, c.v);
+				hStops.push(`rgb(${r}, ${g}, ${b})`);
+			}
+			tracks[0].style.background = `linear-gradient(to right, ${hStops.join(', ')})`;
+
+			let [r0s, g0s, b0s] = hsvToRgb(c.h, 0, c.v);
+			let [r1s, g1s, b1s] = hsvToRgb(c.h, 1, c.v);
+			tracks[1].style.background = `linear-gradient(to right, rgb(${r0s}, ${g0s}, ${b0s}), rgb(${r1s}, ${g1s}, ${b1s}))`;
+
+			let [r0v, g0v, b0v] = hsvToRgb(c.h, c.s, 0);
+			let [r1v, g1v, b1v] = hsvToRgb(c.h, c.s, 1);
+			tracks[2].style.background = `linear-gradient(to right, rgb(${r0v}, ${g0v}, ${b0v}), rgb(${r1v}, ${g1v}, ${b1v}))`;
+		}
+	}
+
+	function onSliderChange(index, val) {
+		const max = parseFloat(inputs[index].max) || 255;
+		val = Math.max(0, Math.min(max, val));
+		inputs[index].value = Math.round(val);
+
+		const c = window.currentSelectedColor;
+		if (window.currentColorMode === 'RGB') {
+			let r = index === 0 ? val : c.r, g = index === 1 ? val : c.g, b = index === 2 ? val : c.b;
+			let [h, s, v] = rgbToHsv(r, g, b);
+			window.updateCurrentColor({ r: Math.round(r), g: Math.round(g), b: Math.round(b), h, s, v });
+		} else {
+			let h = (index === 0 ? val : c.h * 360) / 360, s = (index === 1 ? val : c.s * 100) / 100, v = (index === 2 ? val : c.v * 100) / 100;
+			let [r, g, b] = hsvToRgb(h, s, v);
+			window.updateCurrentColor({ r, g, b, h, s, v });
+		}
+	}
+
+	tracks.forEach((track, i) => {
+		let isDragging = false;
+		const updateFromEvent = (e) => {
+			const rect = track.getBoundingClientRect();
+			const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+			let percent = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+			onSliderChange(i, percent * (parseFloat(inputs[i].max) || 255));
+		};
+		track.addEventListener('mousedown', (e) => { isDragging = true; updateFromEvent(e); e.preventDefault(); });
+		window.addEventListener('mousemove', (e) => { if (isDragging) updateFromEvent(e); });
+		window.addEventListener('mouseup', () => isDragging = false);
+		inputs[i].addEventListener('input', (e) => onSliderChange(i, parseFloat(e.target.value) || 0));
+	});
 }
 
 function hsvToRgb(h, s, v) {
@@ -1016,9 +1148,10 @@ async function processRetintQueue() {
 		const tile = retintQueue.values().next().value;
 		retintQueue.delete(tile);
 
-		const targetHue = layers["New Chunks"].settings.Hue.value;
+		const targetColor = layers["New Chunks"].settings.Color.value;
+		const colorKey = `${targetColor.r},${targetColor.g},${targetColor.b}`;
 
-		if (tile.imgNewChunks && tile.newChunksHue !== targetHue) {
+		if (tile.imgNewChunks && tile.newChunksColorKey !== colorKey) {
 			try {
 				if (tileTintCanvas.width !== tile.imgNewChunks.width) tileTintCanvas.width = tile.imgNewChunks.width;
 				if (tileTintCanvas.height !== tile.imgNewChunks.height) tileTintCanvas.height = tile.imgNewChunks.height;
@@ -1027,18 +1160,16 @@ async function processRetintQueue() {
 				tileTintCtx.clearRect(0, 0, tileTintCanvas.width, tileTintCanvas.height);
 				tileTintCtx.drawImage(tile.imgNewChunks, 0, 0);
 
-				const [r, g, b] = hsvToRgb(targetHue, 1, 1);
 				tileTintCtx.globalCompositeOperation = 'source-atop';
-				tileTintCtx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+				tileTintCtx.fillStyle = `rgb(${targetColor.r}, ${targetColor.g}, ${targetColor.b})`;
 				tileTintCtx.fillRect(0, 0, tileTintCanvas.width, tileTintCanvas.height);
 
 				const newBitmap = await createImageBitmap(tileTintCanvas);
 
 				tile.imgNewChunks.close();
 				tile.imgNewChunks = newBitmap;
-				tile.newChunksHue = targetHue;
-			} catch (e) {
-			}
+				tile.newChunksColorKey = colorKey;
+			} catch (e) { }
 		}
 		tile.isRetinting = false;
 	}
@@ -1302,19 +1433,50 @@ function configureLayerSettings(layerName, layer) {
 			});
 			setReset.style.opacity = (settingObj.value !== settingObj.defaultValue) ? 1 : 0.5;
 			setReset.style.cursor = (settingObj.value !== settingObj.defaultValue) ? 'pointer' : 'default';
-		} else if (settingObj.type == 'hueslider') {
-			let settingslider = document.createElement("img");
-			settingslider.src = '/icon/hueslider.png';
-			settingslider.className = 'slider'
-			layerSettingDiv.appendChild(settingslider);
-			setupSlider(settingslider, settingObj, 0, 1);
+		} else if (settingObj.type == 'colorpicker') {
+			let colorSquare = document.createElement("div");
+			colorSquare.className = 'color-square';
+			colorSquare.style.backgroundColor = `rgb(${settingObj.value.r}, ${settingObj.value.g}, ${settingObj.value.b})`;
+			layerSettingDiv.appendChild(colorSquare);
 
-			updateOnChange(() => settingObj.value, (val) => {
-				setReset.style.opacity = (val !== settingObj.defaultValue) ? 1 : 0.5;
-				setReset.style.cursor = (val !== settingObj.defaultValue) ? 'pointer' : 'default';
+			colorSquare.addEventListener("click", (e) => {
+				window.activeColorTarget = (newColor) => {
+					settingObj.value = { ...newColor };
+					colorSquare.style.backgroundColor = `rgb(${newColor.r}, ${newColor.g}, ${newColor.b})`;
+					const changed = (newColor.r !== settingObj.defaultValue.r || newColor.g !== settingObj.defaultValue.g || newColor.b !== settingObj.defaultValue.b);
+					setReset.style.opacity = changed ? 1 : 0.5;
+					setReset.style.cursor = changed ? 'pointer' : 'default';
+					checkChanges();
+				};
+				if (window.syncPickerUI) window.syncPickerUI(settingObj.value);
+
+				const pickerUI = document.querySelector('.picker');
+				pickerUI.style.display = 'flex';
+				pickerUI.style.zIndex = '999999';
+				pickerUI.style.position = 'absolute';
+				pickerUI.style.margin = '0';
+
+				let left = e.clientX + 20;
+				let top = e.clientY - 20;
+				if (left + 350 > window.innerWidth) left = window.innerWidth - 370;
+				if (top + 513 > window.innerHeight) top = window.innerHeight - 533;
+				if (left < 0) left = 10;
+				if (top < 0) top = 10;
+
+				pickerUI.style.left = `${left}px`;
+				pickerUI.style.top = `${top}px`;
 			});
-			setReset.style.opacity = (settingObj.value !== settingObj.defaultValue) ? 1 : 0.5;
-			setReset.style.cursor = (settingObj.value !== settingObj.defaultValue) ? 'pointer' : 'default';
+
+			setReset.addEventListener("click", () => {
+				settingObj.value = { ...settingObj.defaultValue };
+				colorSquare.style.backgroundColor = `rgb(${settingObj.value.r}, ${settingObj.value.g}, ${settingObj.value.b})`;
+				if (window.syncPickerUI) window.syncPickerUI(settingObj.value);
+				checkChanges();
+			});
+
+			const changed = (settingObj.value.r !== settingObj.defaultValue.r || settingObj.value.g !== settingObj.defaultValue.g || settingObj.value.b !== settingObj.defaultValue.b);
+			setReset.style.opacity = changed ? 1 : 0.5;
+			setReset.style.cursor = changed ? 'pointer' : 'default';
 		}
 		layersettings.appendChild(layerSettingDiv);
 	}
@@ -1956,7 +2118,7 @@ async function loadTile(thisLod, tx, ty, allowLoading = true) {
 		}
 
 		let bitmapNewChunks = null;
-		let hueValue = layers["New Chunks"].settings.Hue ? layers["New Chunks"].settings.Hue.value : 0;
+		let colVal = layers["New Chunks"].settings.Color ? layers["New Chunks"].settings.Color.value : { r: 255, g: 0, b: 0 };
 
 		if (resNewChunks && resNewChunks.ok) {
 			try {
@@ -1969,9 +2131,8 @@ async function loadTile(thisLod, tx, ty, allowLoading = true) {
 				tileTintCtx.clearRect(0, 0, tileTintCanvas.width, tileTintCanvas.height);
 				tileTintCtx.drawImage(rawBitmap, 0, 0);
 
-				const [r, g, b] = hsvToRgb(hueValue, 1, 1);
 				tileTintCtx.globalCompositeOperation = 'source-atop';
-				tileTintCtx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+				tileTintCtx.fillStyle = `rgb(${colVal.r}, ${colVal.g}, ${colVal.b})`;
 				tileTintCtx.fillRect(0, 0, tileTintCanvas.width, tileTintCanvas.height);
 
 				bitmapNewChunks = await createImageBitmap(tileTintCanvas);
@@ -1983,7 +2144,7 @@ async function loadTile(thisLod, tx, ty, allowLoading = true) {
 			imgBase: bitmapBase,
 			imgOverlay: bitmapOverlay,
 			imgNewChunks: bitmapNewChunks,
-			newChunksHue: hueValue,
+			newChunksColorKey: `${colVal.r},${colVal.g},${colVal.b}`,
 			isRetinting: false,
 			loaded: true,
 			loading: false,
@@ -2074,8 +2235,9 @@ function drawTile(tx, ty, lod, x, y, size, loadIfUncached = true, loadingForLowQ
 				return;
 			} else if (layer === 'newchunks') {
 				if (tile.imgNewChunks) {
-					const targetHue = layers["New Chunks"].settings.Hue.value;
-					if (tile.newChunksHue !== targetHue && !tile.isRetinting) {
+					const targetColor = layers["New Chunks"].settings.Color.value;
+					const colorKey = `${targetColor.r},${targetColor.g},${targetColor.b}`;
+					if (tile.newChunksColorKey !== colorKey && !tile.isRetinting) {
 						tile.isRetinting = true;
 						retintQueue.add(tile);
 						processRetintQueue();
@@ -2121,9 +2283,9 @@ function drawTile(tx, ty, lod, x, y, size, loadIfUncached = true, loadingForLowQ
 					return;
 				} else if (layer === 'newchunks') {
 					if (pTile.imgNewChunks) {
-						const targetHue = layers["New Chunks"].settings.Hue.value;
-
-						if (pTile.newChunksHue !== targetHue && !pTile.isRetinting) {
+						const targetColor = layers["New Chunks"].settings.Color.value;
+						const colorKey = `${targetColor.r},${targetColor.g},${targetColor.b}`;
+						if (pTile.newChunksColorKey !== colorKey && !pTile.isRetinting) {
 							pTile.isRetinting = true;
 							retintQueue.add(pTile);
 							processRetintQueue();
@@ -2485,9 +2647,10 @@ function encodeURL({ lat = Math.round(camera.x), lng = Math.round(camera.y), cam
 							} else if (setting.type === 'slider') {
 								const val = Math.max(0, Math.min(1, setting.value));
 								stream.writeBits(Math.round(val * 255), 8);
-							} else if (setting.type === 'hueslider') {
-								const val = Math.max(0, Math.min(1, setting.value));
-								stream.writeBits(Math.round(val * 255), 8);
+							} else if (setting.type === 'colorpicker') {
+								stream.writeBits(setting.value.r, 8);
+								stream.writeBits(setting.value.g, 8);
+								stream.writeBits(setting.value.b, 8);
 							}
 						}
 					}
@@ -2557,8 +2720,12 @@ function decodeURL(base64String) {
 								val = stream.readBits(1) === 1;
 							} else if (type === 'slider') {
 								val = stream.readBits(8) / 255;
-							} else if (type === 'hueslider') {
-								val = stream.readBits(8) / 255;
+							} else if (type === 'colorpicker') {
+								let r = stream.readBits(8);
+								let g = stream.readBits(8);
+								let b = stream.readBits(8);
+								let [h, s, v] = rgbToHsv(r, g, b);
+								val = { r, g, b, h, s, v };
 							}
 						}
 						settings[sName] = val;
@@ -2742,36 +2909,36 @@ function measureRefreshRate(duration = 1000) {
 let measuredFPS = 60;
 
 async function refreshRateUpdateLoop() {
-    const COMMON_REFRESH_RATES = [30, 50, 60, 72, 75, 90, 100, 120, 144, 165, 180, 200, 240, 360];
-    
-    while (true) {
-        if (document.hidden || !document.hasFocus()) {
-            await new Promise(r => setTimeout(r, 1000));
-            continue;
-        }
+	const COMMON_REFRESH_RATES = [30, 50, 60, 72, 75, 90, 100, 120, 144, 165, 180, 200, 240, 360];
 
-        const fps = await measureRefreshRate(500);
-        
-        const snapped = COMMON_REFRESH_RATES.reduce((closest, rate) => {
-            return Math.abs(rate - fps) < Math.abs(closest - fps) ? rate : closest;
-        });
+	while (true) {
+		if (document.hidden || !document.hasFocus()) {
+			await new Promise(r => setTimeout(r, 1000));
+			continue;
+		}
 
-        window.measuredFPS = snapped;
-        
-        if (!document.hidden && document.hasFocus()) {
-            frameRate(snapped);
-        }
+		const fps = await measureRefreshRate(500);
 
-        await new Promise(r => setTimeout(r, 2500));
-    }
+		const snapped = COMMON_REFRESH_RATES.reduce((closest, rate) => {
+			return Math.abs(rate - fps) < Math.abs(closest - fps) ? rate : closest;
+		});
+
+		window.measuredFPS = snapped;
+
+		if (!document.hidden && document.hasFocus()) {
+			frameRate(snapped);
+		}
+
+		await new Promise(r => setTimeout(r, 2500));
+	}
 }
 
 function handleVisibilityChange() {
-    if (document.hidden || !document.hasFocus()) {
-        noLoop(); 
-    } else {
-        loop();
-    }
+	if (document.hidden || !document.hasFocus()) {
+		noLoop();
+	} else {
+		loop();
+	}
 }
 
 refreshRateUpdateLoop();

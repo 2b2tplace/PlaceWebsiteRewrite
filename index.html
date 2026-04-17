@@ -13,12 +13,14 @@
 	<meta property="og:site_name" content="2b2t.place" />
 	<meta property="og:url" content="https://2b2t.place" />
 	<meta property="og:title" content="2b2t.place - 2b2t's Map" />
-	<meta property="og:description" content="Find locations, view map changes and discover the unique landscape in 2b2t.place." />
+	<meta property="og:description"
+		content="Find locations, view map changes and discover the unique landscape in 2b2t.place." />
 
 	<meta property="og:type" content="website" />
 	<meta property="og:url" content="https://2b2t.place" />
 	<meta property="og:title" content="2b2t.place - 2b2t's Map" />
-	<meta property="og:description" content="Find locations, view map changes and discover the unique landscape in 2b2t.place." />
+	<meta property="og:description"
+		content="Find locations, view map changes and discover the unique landscape in 2b2t.place." />
 	<meta property="og:image" content="/og_image.png" />
 	<meta property="og:image:width" content="1200" />
 	<meta property="og:image:height" content="630" />
@@ -29,11 +31,13 @@
 	<meta name="twitter:card" content="summary_large_image" />
 	<meta name="twitter:url" content="https://2b2t.place" />
 	<meta name="twitter:title" content="2b2t.place - 2b2t's Map" />
-	<meta name="twitter:description" content="Find locations, view map changes and discover the unique landscape in 2b2t.place." />
+	<meta name="twitter:description"
+		content="Find locations, view map changes and discover the unique landscape in 2b2t.place." />
 	<meta name="twitter:image" content="/og_image.png" />
 
 	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-	<meta name="description" content="Find locations, view map changes and discover the unique landscape in 2b2t.place." />
+	<meta name="description"
+		content="Find locations, view map changes and discover the unique landscape in 2b2t.place." />
 	<meta name="theme-color" content="#434c79" />
 	<style>
 		html,
@@ -131,24 +135,33 @@
 		<div class="copyLinkScreen" id="copyLinkScreen">
 			<div class="copyLinkDialogue ui noFloat">
 				<div class="heading">
-					<div class="title" id="copyLinkTitle">Share<icon>close</icon></div>
+					<div class="title" id="copyLinkTitle">Share<icon>close</icon>
+					</div>
 					<div class="tablist">
-						<div class="tab selected"><icon>link</icon>Send link</div>
-						<div class="tab"><icon>layers</icon>Embed map</div>
+						<div class="tab selected">
+							<icon>link</icon>Send link
+						</div>
+						<div class="tab">
+							<icon>layers</icon>Embed map
+						</div>
 					</div>
 				</div>
 				<div class="body" id="copyLinkBody">
 				</div>
 				<div class="copyLink">
 					<input readonly type="text" value="" id="copyLinkText">
-					<button class="copyLinkButton" id="copyLinkButton"><div class="popup" id="copyPopup">Copied!</div><icon>copy</icon>Copy Link</button>
+					<button class="copyLinkButton" id="copyLinkButton">
+						<div class="popup" id="copyPopup">Copied!</div>
+						<icon>copy</icon>Copy Link
+					</button>
 				</div>
 			</div>
 		</div>
 		<div class="markerDialogueScreen" id="markerDialogueScreen">
 			<div class="markerDialogue ui noFloat">
 				<div class="heading">
-					<div class="title" id="markerTitle">Place Marker<icon id="closeMarkerDialog">close</icon></div>
+					<div class="title" id="markerTitle">Place Marker<icon id="closeMarkerDialog">close</icon>
+					</div>
 				</div>
 				<div class="body">
 					<input class="markerNameInput" type="text" id="markerNameInput" placeholder="Marker Name">
@@ -167,23 +180,57 @@
 					<div class="markerColours" id="markerColours"></div>
 					<div class="showCoords" id="showCoords"></div>
 				</div>
-				<button class="saveMarker" id="saveMarker"><icon>pin</icon>Save</button>
+				<button class="saveMarker" id="saveMarker">
+					<icon>pin</icon>Save
+				</button>
 			</div>
 		</div>
-		<!-- <div class="picker ui">
+		<div class="picker ui">
 			<div class="heading">
-				<div class="title" id="copyLinkTitle">Picker<icon>close</icon></div>
+				<div class="title" id="copyLinkTitle">Picker<icon>close</icon>
+				</div>
 				<div class="tablist">
-					<div class="tab selected"><icon>chunkhighlights</icon>Grid</div>
-					<div class="tab"><icon>opacity</icon>Spectrum</div>
-					<div class="tab"><icon>on</icon>Sliders</div>
+					<div class="tab selected">
+						<icon>chunkhighlights</icon>Grid
+					</div>
+					<div class="tab">
+						<icon>on</icon>Sliders
+					</div>
 				</div>
 			</div>
-			<div class="body">
+			<div class="body" id="grid">
 				<img class="colourPaletteSelect" src="/icon/paletteSelect.png" alt="">
 				<img class="colourPicker" src="/icon/paletteGrid.png">
+				<div class="color-preview" id="grid-color-preview"></div>
 			</div>
-		</div> -->
+			<div class="body" id="sliders">
+				<div class="slider-controls-header">
+					<button id="toggleColorMode">Switch to HSV</button>
+				</div>
+				<div class="slider-group" id="slider-1-group">
+					<span class="slider-label">R</span>
+					<div class="slider-track-container" id="slider-1-track">
+						<img class="custom-slider-thumb" src="/icon/rgbSliderThumb.png" alt="">
+					</div>
+					<input type="number" class="slider-input" id="slider-1-input" min="0" max="255">
+				</div>
+				<div class="slider-group" id="slider-2-group">
+					<span class="slider-label">G</span>
+					<div class="slider-track-container" id="slider-2-track">
+						<img class="custom-slider-thumb" src="/icon/rgbSliderThumb.png" alt="">
+					</div>
+					<input type="number" class="slider-input" id="slider-2-input" min="0" max="255">
+				</div>
+				<div class="slider-group" id="slider-3-group">
+					<span class="slider-label">B</span>
+					<div class="slider-track-container" id="slider-3-track">
+						<img class="custom-slider-thumb" src="/icon/rgbSliderThumb.png" alt="">
+					</div>
+					<input type="number" class="slider-input" id="slider-3-input" min="0" max="255">
+				</div>
+				<div class="color-preview" id="sliders-color-preview"></div>
+			</div>
+		</div>
 	</ui>
 	<main></main>
 	<script src="https://q5js.org/q5.js"></script>
