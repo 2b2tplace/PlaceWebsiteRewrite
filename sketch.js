@@ -56,6 +56,14 @@ let layers = {
 		settings: {
 			Opacity: { icon: "opacity", type: "slider", value: 1, defaultValue: 1 }
 		}
+	},
+	"Background": {
+		icon: "2d",
+		visible: true, defaultVisible: true,
+		type: "background",
+		settings: {
+			Color: { icon: "brush", type: "colorpicker", value: { r: 0, g: 0, b: 0, h: 0, s: 0, v: 0 }, defaultValue: { r: 0, g: 0, b: 0, h: 0, s: 0, v: 0 } }
+		}
 	}
 }
 
@@ -791,24 +799,29 @@ function setup() {
 		item.className = "item";
 
 		const visibilityIcon = createIcon(layer.visible ? "checked" : "unchecked");
-		visibilityIcon.style.cursor = "pointer";
-		visibilityIcon.addEventListener("click", (e) => {
-			layer.visible = !layer.visible;
-		});
-		updateOnChange(() => layer.visible, (val) => {
-			changeIcon(visibilityIcon, val ? "checked" : "unchecked");
-			if (val) {
-				for (let key in tileCache) {
-					if (tileCache[key].controller) {
-						tileCache[key].controller.abort();
+		if (layer.type === "background") {
+			visibilityIcon.style.opacity = 0.5;
+			visibilityIcon.style.cursor = "default";
+		} else {
+			visibilityIcon.style.cursor = "pointer";
+			visibilityIcon.addEventListener("click", (e) => {
+				layer.visible = !layer.visible;
+			});
+			updateOnChange(() => layer.visible, (val) => {
+				changeIcon(visibilityIcon, val ? "checked" : "unchecked");
+				if (val) {
+					for (let key in tileCache) {
+						if (tileCache[key].controller) {
+							tileCache[key].controller.abort();
+						}
 					}
+					tileCache = {};
+					inFlightRequests.clear();
+					activeTileKeys.clear();
+					updateMapURL();
 				}
-				tileCache = {};
-				inFlightRequests.clear();
-				activeTileKeys.clear();
-				updateMapURL();
-			}
-		});
+			});
+		}
 
 		const layerIcon = createIcon(layer.icon);
 
@@ -1364,34 +1377,36 @@ function configureLayerSettings(layerName, layer) {
 	layersettingslabel.append(layersettingicon, `${layerName} Settings`);
 	layersettings.append(layersettingslabel);
 
-	let setting = document.createElement("div");
-	setting.className = "setting";
+	if (layer.type !== "background") {
+		let setting = document.createElement("div");
+		setting.className = "setting";
 
-	let reset = createIcon('reset');
-	reset.addEventListener("click", () => {
-		if (layer.visible !== layer.defaultVisible) {
-			layer.visible = layer.defaultVisible;
-		}
-	});
+		let reset = createIcon('reset');
+		reset.addEventListener("click", () => {
+			if (layer.visible !== layer.defaultVisible) {
+				layer.visible = layer.defaultVisible;
+			}
+		});
 
-	let icon = createIcon('eye');
-	let name = 'Visibility';
-	let toggle = createIcon(layer.visible ? 'on' : 'off');
-	toggle.classList.add('right');
-	toggle.addEventListener("click", (e) => {
-		layer.visible = !layer.visible;
-	});
+		let icon = createIcon('eye');
+		let name = 'Visibility';
+		let toggle = createIcon(layer.visible ? 'on' : 'off');
+		toggle.classList.add('right');
+		toggle.addEventListener("click", (e) => {
+			layer.visible = !layer.visible;
+		});
 
-	updateOnChange(() => layer.visible, (val) => {
-		changeIcon(toggle, val ? 'on' : 'off');
-		reset.style.opacity = (val !== layer.defaultVisible) ? 1 : 0.5;
-		reset.style.cursor = (val !== layer.defaultVisible) ? 'pointer' : 'default';
-	});
-	reset.style.opacity = (layer.visible !== layer.defaultVisible) ? 1 : 0.5;
-	reset.style.cursor = (layer.visible !== layer.defaultVisible) ? 'pointer' : 'default';
+		updateOnChange(() => layer.visible, (val) => {
+			changeIcon(toggle, val ? 'on' : 'off');
+			reset.style.opacity = (val !== layer.defaultVisible) ? 1 : 0.5;
+			reset.style.cursor = (val !== layer.defaultVisible) ? 'pointer' : 'default';
+		});
+		reset.style.opacity = (layer.visible !== layer.defaultVisible) ? 1 : 0.5;
+		reset.style.cursor = (layer.visible !== layer.defaultVisible) ? 'pointer' : 'default';
 
-	setting.append(reset, icon, name, toggle);
-	layersettings.appendChild(setting);
+		setting.append(reset, icon, name, toggle);
+		layersettings.appendChild(setting);
+	}
 
 	for (const item in layer.settings) {
 		let layerSettingDiv = document.createElement("div");
@@ -1621,7 +1636,8 @@ function draw() {
 		inertiaVel.y = (pmouseY - mouseY) / camera.zoom;
 	}
 
-	background('black');
+	const bgCol = layers["Background"].settings.Color.value;
+	background(bgCol.r, bgCol.g, bgCol.b);
 	noSmooth();
 	push();
 
