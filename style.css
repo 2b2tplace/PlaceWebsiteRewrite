@@ -821,6 +821,7 @@ ui:has(.layers:not(.open)) .layersettings {
 .colourPaletteSelect {
   width: 34px;
   position: absolute;
+  pointer-events: none;
 }
 
 .picker .body#sliders {

@@ -31,12 +31,13 @@ let debugGrid = false;
 const tileTintCanvas = document.createElement('canvas');
 const tileTintCtx = tileTintCanvas.getContext('2d');
 let layers = {
-	"World": {
-		icon: "world",
-		visible: true, defaultVisible: true,
-		type: 'base',
+	"New Chunks": {
+		icon: "chunkhighlights",
+		visible: false, defaultVisible: false,
+		type: 'newchunks',
 		settings: {
-			Opacity: { icon: "opacity", type: "slider", value: 1, defaultValue: 1 }
+			Opacity: { icon: "opacity", type: "slider", value: 0.5, defaultValue: 0.5 },
+			Color: { icon: "brush", type: "colorpicker", value: { r: 255, g: 0, b: 0, h: 0, s: 1, v: 1 }, defaultValue: { r: 255, g: 0, b: 0, h: 0, s: 1, v: 1 } }
 		}
 	},
 	"Obsidian": {
@@ -48,13 +49,12 @@ let layers = {
 			Parallax: { icon: "parallax", type: "toggle", value: true, defaultValue: true }
 		}
 	},
-	"New Chunks": {
-		icon: "chunkhighlights",
-		visible: false, defaultVisible: false,
-		type: 'newchunks',
+	"World": {
+		icon: "world",
+		visible: true, defaultVisible: true,
+		type: 'base',
 		settings: {
-			Opacity: { icon: "opacity", type: "slider", value: 0.5, defaultValue: 0.5 },
-			Color: { icon: "brush", type: "colorpicker", value: { r: 255, g: 0, b: 0, h: 0, s: 1, v: 1 }, defaultValue: { r: 255, g: 0, b: 0, h: 0, s: 1, v: 1 } }
+			Opacity: { icon: "opacity", type: "slider", value: 1, defaultValue: 1 }
 		}
 	}
 }
@@ -2007,23 +2007,31 @@ function update() {
 		const dx = targetCam.x - camera.x;
 		const dy = targetCam.y - camera.y;
 
-		camera.x += dx * 0.15;
-		camera.y += dy * 0.15;
+		const distSq = dx * dx + dy * dy;
+		const isCentered = distSq < 10000 / camera.zoom;
 
-		let currentLogZoom = Math.log(camera.zoom);
-		let targetLogZoom = Math.log(targetCam.zoom);
-		camera.zoom = Math.exp(currentLogZoom + (targetLogZoom - currentLogZoom) * 0.15);
-		intendedCamZoom = camera.zoom;
-
-		if (Math.abs(dx) < 0.1 && Math.abs(dy) < 0.1 && Math.abs(targetLogZoom - Math.log(camera.zoom)) < 0.001) {
+		if (!isCentered) {
+			camera.x += dx * 0.15;
+			camera.y += dy * 0.15;
+			cameraVel = 0;
+		} else {
 			camera.x = targetCam.x;
 			camera.y = targetCam.y;
-			camera.zoom = targetCam.zoom;
-			intendedCamZoom = targetCam.zoom;
-			targetCam = { x: null, y: null, zoom: null };
-			updateMapURL();
+
+			let currentLogZoom = Math.log(camera.zoom);
+			let targetLogZoom = Math.log(targetCam.zoom);
+			let zoomDiff = targetLogZoom - currentLogZoom;
+
+			if (Math.abs(zoomDiff) > 0.001) {
+				camera.zoom = Math.exp(currentLogZoom + zoomDiff * 0.15);
+				intendedCamZoom = camera.zoom;
+			} else {
+				camera.zoom = targetCam.zoom;
+				intendedCamZoom = targetCam.zoom;
+				targetCam = { x: null, y: null, zoom: null };
+				updateMapURL();
+			}
 		}
-		cameraVel = 0;
 	} else if (!isTrackpad) {
 		if (!isDraggingMap) {
 			camera.x += inertiaVel.x;
