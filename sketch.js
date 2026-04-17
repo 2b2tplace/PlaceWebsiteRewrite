@@ -904,6 +904,87 @@ function setup() {
 		});
 		copyLinkBody.appendChild(item);
 	});
+
+	// setupColorPickerUI();
+}
+
+function setupColorPickerUI() {
+	const colourPicker = document.querySelector('.colourPicker');
+	const colourSelect = document.querySelector('.colourPaletteSelect');
+
+	if (!colourPicker || !colourSelect) return;
+
+	const COLS = 12;
+	const ROWS = 10;
+	let isDraggingPicker = false;
+
+	function updatePickerSelection(e) {
+		const rect = colourPicker.getBoundingClientRect();
+
+		const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+		const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+
+		let x = clientX - rect.left;
+		let y = clientY - rect.top;
+
+		x = Math.max(0, Math.min(rect.width - 0.1, x));
+		y = Math.max(0, Math.min(rect.height - 0.1, y));
+
+		const col = Math.floor(x / (rect.width / COLS));
+		const row = Math.floor(y / (rect.height / ROWS));
+
+		const cellWidth = rect.width / COLS;
+		const cellHeight = rect.height / ROWS;
+		const centerX = (col * cellWidth) + (cellWidth / 2);
+		const centerY = (row * cellHeight) + (cellHeight / 2);
+
+		const pickerUi = colourPicker.closest('.picker');
+		const pickerRect = pickerUi.getBoundingClientRect();
+
+		colourSelect.style.marginTop = '0px';
+		colourSelect.style.marginLeft = '0px';
+
+		const selectorWidth = 48;
+		const selectorHeight = 48;
+
+		const finalLeft = (rect.left - pickerRect.left) + centerX - (selectorWidth / 2);
+		const finalTop = (rect.top - pickerRect.top) + centerY - (selectorHeight / 2);
+
+		colourSelect.style.left = `${finalLeft}px`;
+		colourSelect.style.top = `${finalTop}px`;
+
+		let deducedColor = "";
+		if (row === 0) {
+			const lightness = Math.round(100 - (col / (COLS - 1)) * 100);
+			deducedColor = `hsl(0, 0%, ${lightness}%)`;
+		} else {
+			const hue = (180 + col * 30) % 360;
+			const lightness = Math.round(20 + ((row - 1) / (ROWS - 2)) * 70);
+			deducedColor = `hsl(${hue}, 100%, ${lightness}%)`;
+		}
+
+		window.lastSelectedPickerColor = deducedColor;
+	}
+
+	const startDrag = (e) => {
+		isDraggingPicker = true;
+		updatePickerSelection(e);
+		if (e.cancelable) e.preventDefault();
+	};
+	const doDrag = (e) => {
+		if (isDraggingPicker) updatePickerSelection(e);
+	};
+	const stopDrag = () => {
+		isDraggingPicker = false;
+	};
+
+	colourPicker.addEventListener('mousedown', startDrag);
+	window.addEventListener('mousemove', doDrag);
+	window.addEventListener('mouseup', stopDrag);
+
+	colourPicker.addEventListener('touchstart', startDrag, { passive: false });
+	window.addEventListener('touchmove', doDrag, { passive: false });
+	window.addEventListener('touchend', stopDrag);
 }
 
 function hsvToRgb(h, s, v) {
@@ -1364,6 +1445,7 @@ const LOD_ADD = Math.log2(1.33);
 const LOD_MULTIPLY = 1.058;
 
 function draw() {
+	console.log('drawing');
 	update();
 
 	if (isDraggingMap && mouseButton === LEFT) {
@@ -2657,54 +2739,43 @@ function measureRefreshRate(duration = 1000) {
 	});
 }
 
-measureRefreshRate().then(fps => {
-	const COMMON_REFRESH_RATES = [
-		30,
-		50,
-		60,
-		72,
-		75,
-		90,
-		100,
-		120,
-		144,
-		165,
-		180,
-		200,
-		240,
-		360
-	];
-	const snapped = COMMON_REFRESH_RATES.reduce((closest, rate) => {
-		return Math.abs(rate - fps) < Math.abs(closest - fps)
-			? rate
-			: closest;
-	});
-	frameRate(snapped);
-});
+let measuredFPS = 60;
 
-// dont delete this
-// function encodeTileRequest(tlX, tlZ, brX, brZ, zoom) {
-//     const buffer = [];
+async function refreshRateUpdateLoop() {
+    const COMMON_REFRESH_RATES = [30, 50, 60, 72, 75, 90, 100, 120, 144, 165, 180, 200, 240, 360];
+    
+    while (true) {
+        if (document.hidden || !document.hasFocus()) {
+            await new Promise(r => setTimeout(r, 1000));
+            continue;
+        }
 
-//     const zigzag = (n) => (n << 1) ^ (n >> 31);
+        const fps = await measureRefreshRate(500);
+        
+        const snapped = COMMON_REFRESH_RATES.reduce((closest, rate) => {
+            return Math.abs(rate - fps) < Math.abs(closest - fps) ? rate : closest;
+        });
 
-//     const pushVarint = (value) => {
-//         let uValue = zigzag(value) >>> 0;
-//         while (uValue >= 0x80) {
-//             buffer.push((uValue & 0x7F) | 0x80);
-//             uValue >>>= 7;
-//         }
-//         buffer.push(uValue);
-//     };
+        window.measuredFPS = snapped;
+        
+        if (!document.hidden && document.hasFocus()) {
+            frameRate(snapped);
+        }
 
-//     pushVarint(tlX);
-//     pushVarint(tlZ);
-//     pushVarint(brX);
-//     pushVarint(brZ);
+        await new Promise(r => setTimeout(r, 2500));
+    }
+}
 
-//     buffer.push(zoom & 0xFF);
+function handleVisibilityChange() {
+    if (document.hidden || !document.hasFocus()) {
+        noLoop(); 
+    } else {
+        loop();
+    }
+}
 
-//     return new Uint8Array(buffer);
-// }
+refreshRateUpdateLoop();
 
-// const payload = encodeTileRequest(-105, 250, -90, 260, 10);
+document.addEventListener("visibilitychange", handleVisibilityChange);
+window.addEventListener("blur", handleVisibilityChange);
+window.addEventListener("focus", handleVisibilityChange);

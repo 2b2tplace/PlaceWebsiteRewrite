@@ -469,7 +469,8 @@ ui:has(.layers:not(.open)) .layersettings {
 }
 
 .copyLinkDialogue,
-.markerDialogue {
+.markerDialogue,
+.picker  {
   height: unset;
   flex-direction: column;
   justify-content: baseline;
@@ -482,7 +483,8 @@ ui:has(.layers:not(.open)) .layersettings {
 }
 
 .copyLinkDialogue .heading,
-.markerDialogue .heading {
+.markerDialogue .heading,
+.picker .heading {
   background-color: rgba(255, 255, 255, 0.05);
   padding: 10px 15px;
   width: calc(100% - 30px);
@@ -493,23 +495,27 @@ ui:has(.layers:not(.open)) .layersettings {
 }
 
 .copyLinkDialogue .title,
-.markerDialogue .title {
+.markerDialogue .title,
+.picker .title {
   display: flex;
   align-items: center;
   justify-content: space-between;
   font-size: 22px;
-  padding-left: 5px;
-  width: calc(100% - 10px);
+  padding: 0px 10px;
+  width: calc(100% - 20px);
+  height: 50px;
 }
 
 .copyLinkDialogue .title .icon:hover,
-.markerDialogue .title .icon:hover {
+.markerDialogue .title .icon:hover,
+.picker .title .icon:hover {
   cursor: pointer;
 }
 
 .copyLinkDialogue .body,
-.markerDialogue .body {
-  padding: 10px 15px;
+.markerDialogue .body,
+.picker .body {
+  padding: 15px 15px;
   display: flex;
   flex-direction: column;
   gap: 5px;
@@ -517,7 +523,8 @@ ui:has(.layers:not(.open)) .layersettings {
 }
 
 .copyLinkDialogue .subheading,
-.markerDialogue.subheading {
+.markerDialogue .subheading,
+.picker .subheading {
   display: flex;
   align-items: center;
   font-size: 20px;
@@ -525,31 +532,38 @@ ui:has(.layers:not(.open)) .layersettings {
   padding-left: 5px;
 }
 
-.copyLinkDialogue .tablist {
+.copyLinkDialogue .tablist,
+.picker .tablist {
   display: flex;
   gap: 5px;
   background-color: rgba(0, 0, 0, 0.602);
   padding: 5px 5px;
   border-radius: 15px;
-  width: fit-content;
+  width: calc(100% - 10px);
 }
 
-.copyLinkDialogue .tablist .tab {
-  display: flex;
+.copyLinkDialogue .tablist .tab,
+.picker .tablist .tab {
   gap: 10px;
   align-items: center;
   padding: 5px 15px;
   border-radius: 10px;
   opacity: 0.35;
+  justify-content: center;
+  flex: 1;
+  display: flex;
+  font-size: 13px;
 }
 
-.copyLinkDialogue .tablist .tab:hover {
+.copyLinkDialogue .tablist .tab:hover,
+.picker .tablist .tab:hover {
   background-color: rgba(255, 255, 255, 0.158);
   opacity: 0.5;
   cursor: pointer;
 }
 
-.copyLinkDialogue .tablist .tab.selected {
+.copyLinkDialogue .tablist .tab.selected,
+.picker .tablist .tab.selected {
   background-color: rgba(255, 255, 255, 0.158);
   opacity: 1;
 }
@@ -789,4 +803,24 @@ ui:has(.layers:not(.open)) .layersettings {
 .coordInput input[type=number] {
   -moz-appearance: textfield;
   appearance: textfield;
+}
+
+.picker {
+  margin-left: calc(50vw - 175px);
+  margin-top: calc(50vh - 225px);
+  min-width: 0px;
+  width: 450px;
+  height: 550px;
+}
+
+.colourPicker {
+  width: 100%;
+  border-radius: 10px;
+}
+
+.colourPaletteSelect {
+  width: 46px;
+  position: absolute;
+  margin-top: 69px;
+  margin-left: -5px;
 }
