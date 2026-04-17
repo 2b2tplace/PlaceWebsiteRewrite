@@ -1062,7 +1062,8 @@ function setupColorPickerUI() {
 		for (let i = 0; i < 3; i++) {
 			if (document.activeElement !== inputs[i]) inputs[i].value = vals[i];
 			const max = parseFloat(inputs[i].max) || 255;
-			thumbs[i].style.left = `${(vals[i] / max) * 100}%`;
+			let percent = (vals[i] / max);
+			thumbs[i].style.left = `calc(10px + (${percent * 100}% - ${percent * 20}px))`;
 		}
 
 		if (window.currentColorMode === 'RGB') {
@@ -1109,7 +1110,10 @@ function setupColorPickerUI() {
 		const updateFromEvent = (e) => {
 			const rect = track.getBoundingClientRect();
 			const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-			let percent = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+			let xInside = clientX - rect.left - 10;
+			let availableWidth = rect.width - 20;
+
+			let percent = Math.max(0, Math.min(1, xInside / availableWidth));
 			onSliderChange(i, percent * (parseFloat(inputs[i].max) || 255));
 		};
 		track.addEventListener('mousedown', (e) => { isDragging = true; updateFromEvent(e); e.preventDefault(); });
