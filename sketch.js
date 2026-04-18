@@ -819,14 +819,6 @@ function setup() {
 			updateOnChange(() => layer.visible, (val) => {
 				changeIcon(visibilityIcon, val ? "checked" : "unchecked");
 				if (val) {
-					for (let key in tileCache) {
-						if (tileCache[key].controller) {
-							tileCache[key].controller.abort();
-						}
-					}
-					tileCache = {};
-					inFlightRequests.clear();
-					activeTileKeys.clear();
 					updateMapURL();
 				}
 			});
@@ -2148,11 +2140,39 @@ function tileKey(tileX, tileY, lod, dim) {
 async function loadTile(thisLod, tx, ty, allowLoading = true) {
 	const key = tileKey(tx, ty, thisLod, currentDimension);
 
-	if ((tileCache[key] && (tileCache[key].loaded || tileCache[key].failed || tileCache[key].loading)) || !allowLoading || inFlightRequests.has(key)) return;
+	let tile = tileCache[key];
+	let needsFetch = false;
+
+	if (tile) {
+		if (layers["World"].visible && !tile.fetchedBase) needsFetch = true;
+		if (layers["Obsidian"].visible && !tile.fetchedOverlay) needsFetch = true;
+		if (layers["New Chunks"].visible && !tile.fetchedNewChunks) needsFetch = true;
+	} else {
+		needsFetch = true;
+	}
+
+	if ((tile && (!needsFetch || tile.loading)) || !allowLoading || inFlightRequests.has(key)) return;
 
 	const controller = new AbortController();
 
-	if (!tileCache[key]) tileCache[key] = { loading: true, controller: controller };
+	if (!tile) {
+		tile = {
+			loading: true,
+			controller: controller,
+			firstSeen: Date.now(),
+			lastAccessed: Date.now(),
+			fetchedBase: false,
+			fetchedOverlay: false,
+			fetchedNewChunks: false,
+			loaded: false,
+			failed: false
+		};
+		tileCache[key] = tile;
+	} else {
+		tile.loading = true;
+		tile.controller = controller;
+	}
+
 	inFlightRequests.add(key);
 
 	try {
@@ -2161,37 +2181,41 @@ async function loadTile(thisLod, tx, ty, allowLoading = true) {
 
 		const fetchPromises = [];
 
-		if (layers["World"].visible) {
+		const fetchBase = layers["World"].visible && !tile.fetchedBase;
+		const fetchOverlay = layers["Obsidian"].visible && !tile.fetchedOverlay;
+		const fetchNewChunks = layers["New Chunks"].visible && !tile.fetchedNewChunks;
+
+		if (fetchBase) {
 			fetchPromises.push(fetch(`/tiles/base/${thisLod}/${currentDimension}/${sx}/${sy}/t.${tx}.${ty}.webp`, { signal: controller.signal }));
 		} else { fetchPromises.push(Promise.resolve(null)); }
 
-		if (layers["Obsidian"].visible) {
+		if (fetchOverlay) {
 			fetchPromises.push(fetch(`/tiles/overlay/${thisLod}/${currentDimension}/${sx}/${sy}/t.${tx}.${ty}.webp`, { signal: controller.signal }));
 		} else { fetchPromises.push(Promise.resolve(null)); }
 
-		if (layers["New Chunks"].visible) {
+		if (fetchNewChunks) {
 			fetchPromises.push(fetch(`/tiles/newchunks/${thisLod}/${currentDimension}/${sx}/${sy}/t.${tx}.${ty}.webp`, { signal: controller.signal }));
 		} else { fetchPromises.push(Promise.resolve(null)); }
 
 		const [resBase, resOverlay, resNewChunks] = await Promise.all(fetchPromises);
 
-		let bitmapBase = null;
-		if (resBase && resBase.ok) {
+		let bitmapBase = tile.imgBase || null;
+		if (fetchBase && resBase && resBase.ok) {
 			try { bitmapBase = await createImageBitmap(await resBase.blob()); } catch (err) { }
 		}
 
-		let bitmapOverlay = null;
-		if (resOverlay && resOverlay.ok) {
+		let bitmapOverlay = tile.imgOverlay || null;
+		if (fetchOverlay && resOverlay && resOverlay.ok) {
 			try { bitmapOverlay = await createImageBitmap(await resOverlay.blob()); } catch (err) { }
 		}
 
-		let rawNewChunks = null;
-		let bitmapNewChunks = null;
+		let rawNewChunks = tile.imgNewChunksRaw || null;
+		let bitmapNewChunks = tile.imgNewChunks || null;
 		const targetColor = layers["New Chunks"].settings.Color ? layers["New Chunks"].settings.Color.value : { r: 255, g: 0, b: 0 };
 		const isInverted = layers["New Chunks"].settings.Invert ? layers["New Chunks"].settings.Invert.value : false;
 		const stateKey = `${targetColor.r},${targetColor.g},${targetColor.b},${isInverted}`;
 
-		if (resNewChunks && resNewChunks.ok) {
+		if (fetchNewChunks && resNewChunks && resNewChunks.ok) {
 			try {
 				rawNewChunks = await createImageBitmap(await resNewChunks.blob());
 
@@ -2221,27 +2245,26 @@ async function loadTile(thisLod, tx, ty, allowLoading = true) {
 			} catch (err) { }
 		}
 
-		tileCache[key] = {
-			imgBase: bitmapBase,
-			imgOverlay: bitmapOverlay,
-			imgNewChunksRaw: rawNewChunks,
-			imgNewChunks: bitmapNewChunks,
-			newChunksStateKey: bitmapNewChunks ? stateKey : null,
-			isRetinting: false,
-			loaded: true,
-			loading: false,
-			lastAccessed: Date.now()
-		};
+		tile.imgBase = bitmapBase;
+		tile.imgOverlay = bitmapOverlay;
+		tile.imgNewChunksRaw = rawNewChunks;
+		tile.imgNewChunks = bitmapNewChunks;
+		tile.newChunksStateKey = bitmapNewChunks ? stateKey : tile.newChunksStateKey;
+		tile.fetchedBase = tile.fetchedBase || layers["World"].visible;
+		tile.fetchedOverlay = tile.fetchedOverlay || layers["Obsidian"].visible;
+		tile.fetchedNewChunks = tile.fetchedNewChunks || layers["New Chunks"].visible;
+		tile.loaded = true;
+		tile.loading = false;
+		tile.failed = false;
+		tile.lastAccessed = Date.now();
 
 	} catch (e) {
 		if (e.name === 'AbortError') return;
 
-		tileCache[key] = {
-			loaded: false,
-			loading: false,
-			failed: true,
-			timestamp: Date.now()
-		};
+		tile.loaded = tile.loaded || false;
+		tile.loading = false;
+		tile.failed = !tile.loaded;
+		tile.timestamp = Date.now();
 	} finally {
 		inFlightRequests.delete(key);
 	}
@@ -2265,19 +2288,58 @@ function drawTile(tx, ty, lod, x, y, size, loadIfUncached = true, loadingForLowQ
 
 	let tile = tileCache[key];
 	if (!tile) {
-		tile = { loading: false, loaded: false, failed: false, firstSeen: Date.now(), lastAccessed: Date.now() };
+		tile = {
+			loading: false,
+			loaded: false,
+			failed: false,
+			firstSeen: Date.now(),
+			lastAccessed: Date.now(),
+			fetchedBase: false,
+			fetchedOverlay: false,
+			fetchedNewChunks: false
+		};
 		tileCache[key] = tile;
 	} else {
 		tile.lastAccessed = Date.now();
 	}
 
+	let needsFetch = false;
+	if (layers["World"].visible && !tile.fetchedBase) needsFetch = true;
+	if (layers["Obsidian"].visible && !tile.fetchedOverlay) needsFetch = true;
+	if (layers["New Chunks"].visible && !tile.fetchedNewChunks) needsFetch = true;
+
 	if (isAllowedToLoad) {
 		const actualDwell = (lod >= 8 || isZoomingFast) ? 30 : currentDwell;
 
-		const shouldLoad = !tile.loading && !tile.loaded && !tile.failed && (Date.now() - tile.firstSeen > actualDwell);
+		const shouldLoad = !tile.loading && (!tile.loaded || needsFetch) && !tile.failed && (Date.now() - tile.firstSeen > actualDwell);
 		if (shouldLoad) {
 			activeTileKeys.add(key);
 			loadTile(lod, tx, ty, loadIfUncached);
+		}
+	}
+
+	let hasLayerImage = false;
+	let layerFetched = false;
+
+	if (layer === 'base') {
+		hasLayerImage = !!tile.imgBase;
+		layerFetched = tile.fetchedBase;
+	} else if (layer === 'overlay') {
+		hasLayerImage = !!tile.imgOverlay;
+		layerFetched = tile.fetchedOverlay;
+	} else if (layer === 'newchunks') {
+		const isInverted = layers["New Chunks"].settings.Invert.value;
+		const targetColor = layers["New Chunks"].settings.Color.value;
+		const stateKey = `${targetColor.r},${targetColor.g},${targetColor.b},${isInverted}`;
+		const hasData = tile.imgNewChunksRaw || (isInverted && tile.imgBase);
+
+		hasLayerImage = tile.imgNewChunks && tile.newChunksStateKey === stateKey;
+		layerFetched = tile.fetchedNewChunks;
+
+		if (layerFetched && !hasLayerImage && hasData && !tile.isRetinting) {
+			tile.isRetinting = true;
+			retintQueue.add(tile);
+			processRetintQueue();
 		}
 	}
 
@@ -2307,36 +2369,13 @@ function drawTile(tx, ty, lod, x, y, size, loadIfUncached = true, loadingForLowQ
 	if (tile.loaded) {
 		activeTileKeys.add(key);
 		if (!debugGrid) {
-			if (layer === 'base') {
-				if (tile.imgBase) targetCtx.image(tile.imgBase, x, y, size, size);
-				return;
-			} else if (layer === 'overlay') {
-				if (tile.imgOverlay) {
-					targetCtx.image(tile.imgOverlay, x, y, size, size);
+			if (layerFetched) {
+				if (hasLayerImage) {
+					if (layer === 'base') targetCtx.image(tile.imgBase, x, y, size, size);
+					else if (layer === 'overlay') targetCtx.image(tile.imgOverlay, x, y, size, size);
+					else if (layer === 'newchunks') targetCtx.image(tile.imgNewChunks, x, y, size, size);
 				}
 				return;
-			} else if (layer === 'newchunks') {
-				const isInverted = layers["New Chunks"].settings.Invert.value;
-				const targetColor = layers["New Chunks"].settings.Color.value;
-				const stateKey = `${targetColor.r},${targetColor.g},${targetColor.b},${isInverted}`;
-				const hasData = tile.imgNewChunksRaw || (isInverted && tile.imgBase);
-
-				if (tile.newChunksStateKey !== stateKey && !tile.isRetinting) {
-					if (hasData) {
-						tile.isRetinting = true;
-						retintQueue.add(tile);
-						processRetintQueue();
-					} else {
-						tile.newChunksStateKey = stateKey;
-					}
-				}
-				if (tile.imgNewChunks && tile.newChunksStateKey === stateKey) {
-					targetCtx.image(tile.imgNewChunks, x, y, size, size);
-					return;
-				}
-				if (!hasData) {
-					return;
-				}
 			}
 		} else {
 			return;
@@ -2365,37 +2404,39 @@ function drawTile(tx, ty, lod, x, y, size, loadIfUncached = true, loadingForLowQ
 			let sW = Math.ceil(sSize);
 			let sH = Math.ceil(sSize);
 
+			let pLayerFetched = false;
+			let pHasLayerImage = false;
+
+			if (layer === 'base') {
+				pLayerFetched = pTile.fetchedBase;
+				pHasLayerImage = !!pTile.imgBase;
+			} else if (layer === 'overlay') {
+				pLayerFetched = pTile.fetchedOverlay;
+				pHasLayerImage = !!pTile.imgOverlay;
+			} else if (layer === 'newchunks') {
+				const targetColor = layers["New Chunks"].settings.Color.value;
+				const isInverted = layers["New Chunks"].settings.Invert.value;
+				const stateKey = `${targetColor.r},${targetColor.g},${targetColor.b},${isInverted}`;
+				const hasData = pTile.imgNewChunksRaw || (isInverted && pTile.imgBase);
+
+				pLayerFetched = pTile.fetchedNewChunks;
+				pHasLayerImage = pTile.imgNewChunks && pTile.newChunksStateKey === stateKey;
+
+				if (pLayerFetched && !pHasLayerImage && hasData && !pTile.isRetinting) {
+					pTile.isRetinting = true;
+					retintQueue.add(pTile);
+					processRetintQueue();
+				}
+			}
+
 			if (!debugGrid) {
-				if (layer === 'base') {
-					if (pTile.imgBase) targetCtx.image(pTile.imgBase, x, y, size, size, sX, sY, sW, sH);
+				if (pLayerFetched) {
+					if (pHasLayerImage) {
+						if (layer === 'base') targetCtx.image(pTile.imgBase, x, y, size, size, sX, sY, sW, sH);
+						else if (layer === 'overlay') targetCtx.image(pTile.imgOverlay, x, y, size, size, sX, sY, sW, sH);
+						else if (layer === 'newchunks') targetCtx.image(pTile.imgNewChunks, x, y, size, size, sX, sY, sW, sH);
+					}
 					return;
-				} else if (layer === 'overlay') {
-					if (pTile.imgOverlay) targetCtx.image(pTile.imgOverlay, x, y, size, size, sX, sY, sW, sH);
-					return;
-				} else if (layer === 'newchunks') {
-					const targetColor = layers["New Chunks"].settings.Color.value;
-					const isInverted = layers["New Chunks"].settings.Invert.value;
-					const stateKey = `${targetColor.r},${targetColor.g},${targetColor.b},${isInverted}`;
-					const hasData = pTile.imgNewChunksRaw || (isInverted && pTile.imgBase);
-
-					if (pTile.newChunksStateKey !== stateKey && !pTile.isRetinting) {
-						if (hasData) {
-							pTile.isRetinting = true;
-							retintQueue.add(pTile);
-							processRetintQueue();
-						} else {
-							pTile.newChunksStateKey = stateKey;
-						}
-					}
-
-					if (pTile.imgNewChunks && pTile.newChunksStateKey === stateKey) {
-						targetCtx.image(pTile.imgNewChunks, x, y, size, size, sX, sY, sW, sH);
-						return;
-					}
-
-					if (!hasData) {
-						return;
-					}
 				}
 			} else {
 				return;
