@@ -2225,8 +2225,8 @@ async function loadTile(thisLod, tx, ty, allowLoading = true) {
 			imgBase: bitmapBase,
 			imgOverlay: bitmapOverlay,
 			imgNewChunksRaw: rawNewChunks,
-			imgNewChunks: null,
-			newChunksStateKey: null,
+			imgNewChunks: bitmapNewChunks,
+			newChunksStateKey: bitmapNewChunks ? stateKey : null,
 			isRetinting: false,
 			loaded: true,
 			loading: false,
@@ -2308,19 +2308,24 @@ function drawTile(tx, ty, lod, x, y, size, loadIfUncached = true, loadingForLowQ
 				const isInverted = layers["New Chunks"].settings.Invert.value;
 				const targetColor = layers["New Chunks"].settings.Color.value;
 				const stateKey = `${targetColor.r},${targetColor.g},${targetColor.b},${isInverted}`;
+				const hasData = tile.imgNewChunksRaw || (isInverted && tile.imgBase);
 
 				if (tile.newChunksStateKey !== stateKey && !tile.isRetinting) {
-					if (tile.imgNewChunksRaw || (isInverted && tile.imgBase)) {
+					if (hasData) {
 						tile.isRetinting = true;
 						retintQueue.add(tile);
 						processRetintQueue();
+					} else {
+						tile.newChunksStateKey = stateKey;
 					}
 				}
-
-				if (tile.imgNewChunks) {
-					image(tile.imgNewChunks, x, y, size, size);
+				if (tile.imgNewChunks && tile.newChunksStateKey === stateKey) {
+					targetCtx.image(tile.imgNewChunks, x, y, size, size);
+					return;
 				}
-				return;
+				if (!hasData) {
+					return;
+				}
 			}
 		} else {
 			return;
@@ -2357,22 +2362,29 @@ function drawTile(tx, ty, lod, x, y, size, loadIfUncached = true, loadingForLowQ
 					if (pTile.imgOverlay) targetCtx.image(pTile.imgOverlay, x, y, size, size, sX, sY, sW, sH);
 					return;
 				} else if (layer === 'newchunks') {
-					if (pTile.imgNewChunksRaw) {
-						const targetColor = layers["New Chunks"].settings.Color.value;
-						const isInverted = layers["New Chunks"].settings.Invert.value;
-						const stateKey = `${targetColor.r},${targetColor.g},${targetColor.b},${isInverted}`;
+					const targetColor = layers["New Chunks"].settings.Color.value;
+					const isInverted = layers["New Chunks"].settings.Invert.value;
+					const stateKey = `${targetColor.r},${targetColor.g},${targetColor.b},${isInverted}`;
+					const hasData = pTile.imgNewChunksRaw || (isInverted && pTile.imgBase);
 
-						if (pTile.newChunksStateKey !== stateKey && !pTile.isRetinting) {
+					if (pTile.newChunksStateKey !== stateKey && !pTile.isRetinting) {
+						if (hasData) {
 							pTile.isRetinting = true;
 							retintQueue.add(pTile);
 							processRetintQueue();
+						} else {
+							pTile.newChunksStateKey = stateKey;
 						}
 					}
 
-					if (pTile.imgNewChunks) {
-						image(pTile.imgNewChunks, x, y, size, size, sX, sY, sW, sH);
+					if (pTile.imgNewChunks && pTile.newChunksStateKey === stateKey) {
+						targetCtx.image(pTile.imgNewChunks, x, y, size, size, sX, sY, sW, sH);
+						return;
 					}
-					return;
+
+					if (!hasData) {
+						return;
+					}
 				}
 			} else {
 				return;
