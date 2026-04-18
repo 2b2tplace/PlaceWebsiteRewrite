@@ -2249,8 +2249,17 @@ async function loadTile(thisLod, tx, ty, allowLoading = true) {
 
 function drawTile(tx, ty, lod, x, y, size, loadIfUncached = true, loadingForLowQual = false, currentDwell = 500, layer = 'base', targetCtx = window) {
 	const speedThreshold = Math.min(6, Math.floor(smoothCamVel / 5));
-	const effectiveLod = Math.max(lod, speedThreshold);
-	const isAllowedToLoad = loadIfUncached && (lod >= effectiveLod || lod >= 8 || loadingForLowQual);
+
+	const isZoomingFast = Math.abs(cameraVel) > 0.001;
+
+	let isAllowedToLoad;
+
+	if (isZoomingFast) {
+		isAllowedToLoad = loadIfUncached && (lod >= 8 || loadingForLowQual);
+	} else {
+		const effectiveLod = Math.max(lod, speedThreshold);
+		isAllowedToLoad = loadIfUncached && (lod >= effectiveLod || lod >= 8 || loadingForLowQual);
+	}
 
 	const key = tileKey(tx, ty, lod, currentDimension);
 
@@ -2263,7 +2272,7 @@ function drawTile(tx, ty, lod, x, y, size, loadIfUncached = true, loadingForLowQ
 	}
 
 	if (isAllowedToLoad) {
-		const actualDwell = (lod >= 8 || loadingForLowQual) ? 50 : currentDwell;
+		const actualDwell = (lod >= 8 || isZoomingFast) ? 30 : currentDwell;
 
 		const shouldLoad = !tile.loading && !tile.loaded && !tile.failed && (Date.now() - tile.firstSeen > actualDwell);
 		if (shouldLoad) {
