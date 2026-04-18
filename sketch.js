@@ -2310,7 +2310,7 @@ function drawTile(tx, ty, lod, x, y, size, loadIfUncached = true, loadingForLowQ
 				const stateKey = `${targetColor.r},${targetColor.g},${targetColor.b},${isInverted}`;
 
 				if (tile.newChunksStateKey !== stateKey && !tile.isRetinting) {
-					if (tile.imgNewChunksRaw || isInverted) {
+					if (tile.imgNewChunksRaw || (isInverted && tile.imgBase)) {
 						tile.isRetinting = true;
 						retintQueue.add(tile);
 						processRetintQueue();
