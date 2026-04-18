@@ -37,8 +37,7 @@ let layers = {
 		type: 'newchunks',
 		settings: {
 			Opacity: { icon: "opacity", type: "slider", value: 0.5, defaultValue: 0.5 },
-			Color: { icon: "brush", type: "colorpicker", value: { r: 255, g: 0, b: 0, h: 0, s: 1, v: 1 }, defaultValue: { r: 255, g: 0, b: 0, h: 0, s: 1, v: 1 } },
-			Invert: { icon: "invert", type: "toggle", value: false, defaultValue: false }
+			Color: { icon: "brush", type: "colorpicker", value: { r: 255, g: 0, b: 0, h: 0, s: 1, v: 1 }, defaultValue: { r: 255, g: 0, b: 0, h: 0, s: 1, v: 1 } }
 		}
 	},
 	"Obsidian": {
@@ -1167,41 +1166,26 @@ async function processRetintQueue() {
 		retintQueue.delete(tile);
 
 		const targetColor = layers["New Chunks"].settings.Color.value;
-		const isInverted = layers["New Chunks"].settings.Invert.value;
-		const stateKey = `${targetColor.r},${targetColor.g},${targetColor.b},${isInverted}`;
+		const colorKey = `${targetColor.r},${targetColor.g},${targetColor.b}`;
 
-		if (tile.imgNewChunksRaw && tile.newChunksStateKey !== stateKey) {
+		if (tile.imgNewChunks && tile.newChunksColorKey !== colorKey) {
 			try {
-				const rawBitmap = tile.imgNewChunksRaw;
-				if (tileTintCanvas.width !== rawBitmap.width) tileTintCanvas.width = rawBitmap.width;
-				if (tileTintCanvas.height !== rawBitmap.height) tileTintCanvas.height = rawBitmap.height;
+				if (tileTintCanvas.width !== tile.imgNewChunks.width) tileTintCanvas.width = tile.imgNewChunks.width;
+				if (tileTintCanvas.height !== tile.imgNewChunks.height) tileTintCanvas.height = tile.imgNewChunks.height;
 
 				tileTintCtx.globalCompositeOperation = 'source-over';
 				tileTintCtx.clearRect(0, 0, tileTintCanvas.width, tileTintCanvas.height);
+				tileTintCtx.drawImage(tile.imgNewChunks, 0, 0);
 
-				if (!isInverted) {
-					tileTintCtx.drawImage(rawBitmap, 0, 0);
-					tileTintCtx.globalCompositeOperation = 'source-atop';
-					tileTintCtx.fillStyle = `rgb(${targetColor.r}, ${targetColor.g}, ${targetColor.b})`;
-					tileTintCtx.fillRect(0, 0, tileTintCanvas.width, tileTintCanvas.height);
-				} else {
-					if (tile.imgBase) {
-						tileTintCtx.drawImage(tile.imgBase, 0, 0, rawBitmap.width, rawBitmap.height);
-
-						tileTintCtx.globalCompositeOperation = 'source-in';
-						tileTintCtx.fillStyle = `rgb(${targetColor.r}, ${targetColor.g}, ${targetColor.b})`;
-						tileTintCtx.fillRect(0, 0, tileTintCanvas.width, tileTintCanvas.height);
-
-						tileTintCtx.globalCompositeOperation = 'destination-out';
-						tileTintCtx.drawImage(rawBitmap, 0, 0);
-					}
-				}
+				tileTintCtx.globalCompositeOperation = 'source-atop';
+				tileTintCtx.fillStyle = `rgb(${targetColor.r}, ${targetColor.g}, ${targetColor.b})`;
+				tileTintCtx.fillRect(0, 0, tileTintCanvas.width, tileTintCanvas.height);
 
 				const newBitmap = await createImageBitmap(tileTintCanvas);
 
-				if (tile.imgNewChunks) tile.imgNewChunks.close();
+				tile.imgNewChunks.close();
 				tile.imgNewChunks = newBitmap;
-				tile.newChunksStateKey = stateKey;
+				tile.newChunksColorKey = colorKey;
 			} catch (e) { }
 		}
 		tile.isRetinting = false;
@@ -2161,51 +2145,46 @@ async function loadTile(thisLod, tx, ty, allowLoading = true) {
 			try { bitmapOverlay = await createImageBitmap(await resOverlay.blob()); } catch (err) { }
 		}
 
-		let rawNewChunks = null;
 		let bitmapNewChunks = null;
-		const targetColor = layers["New Chunks"].settings.Color ? layers["New Chunks"].settings.Color.value : { r: 255, g: 0, b: 0 };
-		const isInverted = layers["New Chunks"].settings.Invert ? layers["New Chunks"].settings.Invert.value : false;
-		const stateKey = `${targetColor.r},${targetColor.g},${targetColor.b},${isInverted}`;
+		let colVal = layers["New Chunks"].settings.Color ? layers["New Chunks"].settings.Color.value : { r: 255, g: 0, b: 0 };
 
 		if (resNewChunks && resNewChunks.ok) {
 			try {
-				rawNewChunks = await createImageBitmap(await resNewChunks.blob());
+				const rawBitmap = await createImageBitmap(await resNewChunks.blob());
 
-				if (tileTintCanvas.width !== rawNewChunks.width) tileTintCanvas.width = rawNewChunks.width;
-				if (tileTintCanvas.height !== rawNewChunks.height) tileTintCanvas.height = rawNewChunks.height;
+				if (tileTintCanvas.width !== rawBitmap.width) tileTintCanvas.width = rawBitmap.width;
+				if (tileTintCanvas.height !== rawBitmap.height) tileTintCanvas.height = rawBitmap.height;
 
 				tileTintCtx.globalCompositeOperation = 'source-over';
 				tileTintCtx.clearRect(0, 0, tileTintCanvas.width, tileTintCanvas.height);
+				tileTintCtx.drawImage(rawBitmap, 0, 0);
 
-				if (!isInverted) {
-					tileTintCtx.drawImage(rawNewChunks, 0, 0);
-					tileTintCtx.globalCompositeOperation = 'source-atop';
-					tileTintCtx.fillStyle = `rgb(${targetColor.r}, ${targetColor.g}, ${targetColor.b})`;
-					tileTintCtx.fillRect(0, 0, tileTintCanvas.width, tileTintCanvas.height);
-				} else {
-					if (bitmapBase) {
-						tileTintCtx.drawImage(bitmapBase, 0, 0, rawNewChunks.width, rawNewChunks.height);
-						tileTintCtx.globalCompositeOperation = 'source-in';
-						tileTintCtx.fillStyle = `rgb(${targetColor.r}, ${targetColor.g}, ${targetColor.b})`;
-						tileTintCtx.fillRect(0, 0, tileTintCanvas.width, tileTintCanvas.height);
-						tileTintCtx.globalCompositeOperation = 'destination-out';
-						tileTintCtx.drawImage(rawNewChunks, 0, 0);
-					}
-				}
+				tileTintCtx.globalCompositeOperation = 'source-atop';
+				tileTintCtx.fillStyle = `rgb(${colVal.r}, ${colVal.g}, ${colVal.b})`;
+				tileTintCtx.fillRect(0, 0, tileTintCanvas.width, tileTintCanvas.height);
 
 				bitmapNewChunks = await createImageBitmap(tileTintCanvas);
+				rawBitmap.close();
 			} catch (err) { }
 		}
-
-		if (!bitmapBase && !bitmapOverlay && !bitmapNewChunks) throw new Error("No image found");
 
 		tileCache[key] = {
 			imgBase: bitmapBase,
 			imgOverlay: bitmapOverlay,
-			imgNewChunksRaw: rawNewChunks,
 			imgNewChunks: bitmapNewChunks,
-			newChunksStateKey: stateKey,
+			newChunksColorKey: `${colVal.r},${colVal.g},${colVal.b}`,
 			isRetinting: false,
+			loaded: true,
+			loading: false,
+			lastAccessed: Date.now()
+		};
+
+		if (!bitmapBase && !bitmapOverlay && !bitmapNewChunks) throw new Error("No imagery found");
+
+		tileCache[key] = {
+			imgBase: bitmapBase,
+			imgOverlay: bitmapOverlay,
+			imgNewChunks: bitmapNewChunks,
 			loaded: true,
 			loading: false,
 			lastAccessed: Date.now()
@@ -2283,19 +2262,15 @@ function drawTile(tx, ty, lod, x, y, size, loadIfUncached = true, loadingForLowQ
 				}
 				return;
 			} else if (layer === 'newchunks') {
-				if (tile.imgNewChunksRaw) {
+				if (tile.imgNewChunks) {
 					const targetColor = layers["New Chunks"].settings.Color.value;
-					const isInverted = layers["New Chunks"].settings.Invert.value;
-					const stateKey = `${targetColor.r},${targetColor.g},${targetColor.b},${isInverted}`;
-
-					if (tile.newChunksStateKey !== stateKey && !tile.isRetinting) {
+					const colorKey = `${targetColor.r},${targetColor.g},${targetColor.b}`;
+					if (tile.newChunksColorKey !== colorKey && !tile.isRetinting) {
 						tile.isRetinting = true;
 						retintQueue.add(tile);
 						processRetintQueue();
 					}
-				}
 
-				if (tile.imgNewChunks) {
 					image(tile.imgNewChunks, x, y, size, size);
 				}
 				return;
@@ -2335,19 +2310,15 @@ function drawTile(tx, ty, lod, x, y, size, loadIfUncached = true, loadingForLowQ
 					if (pTile.imgOverlay) targetCtx.image(pTile.imgOverlay, x, y, size, size, sX, sY, sW, sH);
 					return;
 				} else if (layer === 'newchunks') {
-					if (pTile.imgNewChunksRaw) {
+					if (pTile.imgNewChunks) {
 						const targetColor = layers["New Chunks"].settings.Color.value;
-						const isInverted = layers["New Chunks"].settings.Invert.value;
-						const stateKey = `${targetColor.r},${targetColor.g},${targetColor.b},${isInverted}`;
-
-						if (pTile.newChunksStateKey !== stateKey && !pTile.isRetinting) {
+						const colorKey = `${targetColor.r},${targetColor.g},${targetColor.b}`;
+						if (pTile.newChunksColorKey !== colorKey && !pTile.isRetinting) {
 							pTile.isRetinting = true;
 							retintQueue.add(pTile);
 							processRetintQueue();
 						}
-					}
 
-					if (pTile.imgNewChunks) {
 						image(pTile.imgNewChunks, x, y, size, size, sX, sY, sW, sH);
 					}
 					return;
@@ -2405,7 +2376,6 @@ function pruneCache() {
 
 			if (tileCache[key].imgBase) tileCache[key].imgBase.close();
 			if (tileCache[key].imgOverlay) tileCache[key].imgOverlay.close();
-			if (tileCache[key].imgNewChunksRaw) tileCache[key].imgNewChunksRaw.close();
 			if (tileCache[key].imgNewChunks) tileCache[key].imgNewChunks.close();
 
 			delete tileCache[key];
