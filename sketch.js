@@ -28,6 +28,7 @@ let changeListeners = [];
 let currentLayerSettings;
 let poppins;
 let debugGrid = false;
+let solidBitmap;
 const tileTintCanvas = document.createElement('canvas');
 const tileTintCtx = tileTintCanvas.getContext('2d');
 let layers = {
@@ -247,6 +248,13 @@ function setup() {
 			}
 		})
 		.catch(e => console.error("Initial Atlas load failed:", e));
+
+	fetch('/media/solidTile.webp')
+		.then(res => res.blob())
+		.then(blob => createImageBitmap(blob))
+		.then(bitmap => {
+			solidBitmap = bitmap;
+		});
 
 	markerColors.forEach(col => {
 		markerIcons[col] = loadImage(`/icon/worldPin${col}.png`);
@@ -1170,9 +1178,10 @@ async function processRetintQueue() {
 		const isInverted = layers["New Chunks"].settings.Invert.value;
 		const stateKey = `${targetColor.r},${targetColor.g},${targetColor.b},${isInverted}`;
 
-		if (tile.imgNewChunksRaw && tile.newChunksStateKey !== stateKey) {
+		if (tile.newChunksStateKey !== stateKey && (tile.imgNewChunksRaw || isInverted)) {
 			try {
-				const rawBitmap = tile.imgNewChunksRaw;
+				const rawBitmap = tile.imgNewChunksRaw || solidBitmap;
+				if (!rawBitmap) continue;
 				if (tileTintCanvas.width !== rawBitmap.width) tileTintCanvas.width = rawBitmap.width;
 				if (tileTintCanvas.height !== rawBitmap.height) tileTintCanvas.height = rawBitmap.height;
 
@@ -1193,7 +1202,16 @@ async function processRetintQueue() {
 						tileTintCtx.fillRect(0, 0, tileTintCanvas.width, tileTintCanvas.height);
 
 						tileTintCtx.globalCompositeOperation = 'destination-out';
-						tileTintCtx.drawImage(rawBitmap, 0, 0);
+						if (tile.imgNewChunksRaw) {
+							tileTintCtx.drawImage(tile.imgNewChunksRaw, 0, 0);
+						}
+					} else {
+						tileTintCtx.fillStyle = `rgb(${targetColor.r}, ${targetColor.g}, ${targetColor.b})`;
+						tileTintCtx.fillRect(0, 0, tileTintCanvas.width, tileTintCanvas.height);
+						if (tile.imgNewChunksRaw) {
+							tileTintCtx.globalCompositeOperation = 'destination-out';
+							tileTintCtx.drawImage(tile.imgNewChunksRaw, 0, 0);
+						}
 					}
 				}
 
@@ -1202,7 +1220,13 @@ async function processRetintQueue() {
 				if (tile.imgNewChunks) tile.imgNewChunks.close();
 				tile.imgNewChunks = newBitmap;
 				tile.newChunksStateKey = stateKey;
-			} catch (e) { }
+			} catch (e) { console.error(e); }
+		} else if (!isInverted && !tile.imgNewChunksRaw) {
+			if (tile.imgNewChunks) {
+				tile.imgNewChunks.close();
+				tile.imgNewChunks = null;
+			}
+			tile.newChunksStateKey = stateKey;
 		}
 		tile.isRetinting = false;
 	}
@@ -2197,14 +2221,12 @@ async function loadTile(thisLod, tx, ty, allowLoading = true) {
 			} catch (err) { }
 		}
 
-		if (!bitmapBase && !bitmapOverlay && !bitmapNewChunks) throw new Error("No image found");
-
 		tileCache[key] = {
 			imgBase: bitmapBase,
 			imgOverlay: bitmapOverlay,
 			imgNewChunksRaw: rawNewChunks,
-			imgNewChunks: bitmapNewChunks,
-			newChunksStateKey: stateKey,
+			imgNewChunks: null,
+			newChunksStateKey: null,
 			isRetinting: false,
 			loaded: true,
 			loading: false,
@@ -2283,12 +2305,12 @@ function drawTile(tx, ty, lod, x, y, size, loadIfUncached = true, loadingForLowQ
 				}
 				return;
 			} else if (layer === 'newchunks') {
-				if (tile.imgNewChunksRaw) {
-					const targetColor = layers["New Chunks"].settings.Color.value;
-					const isInverted = layers["New Chunks"].settings.Invert.value;
-					const stateKey = `${targetColor.r},${targetColor.g},${targetColor.b},${isInverted}`;
+				const isInverted = layers["New Chunks"].settings.Invert.value;
+				const targetColor = layers["New Chunks"].settings.Color.value;
+				const stateKey = `${targetColor.r},${targetColor.g},${targetColor.b},${isInverted}`;
 
-					if (tile.newChunksStateKey !== stateKey && !tile.isRetinting) {
+				if (tile.newChunksStateKey !== stateKey && !tile.isRetinting) {
+					if (tile.imgNewChunksRaw || isInverted) {
 						tile.isRetinting = true;
 						retintQueue.add(tile);
 						processRetintQueue();
