@@ -175,6 +175,15 @@ ui {
   position: initial;
 }
 
+.ui.iconButton {
+  cursor: pointer;
+  width: 40px;
+  padding: 0px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .searchBar {
   top: 10px;
   left: 10px;
