@@ -2303,6 +2303,8 @@ function drawTile(tx, ty, lod, x, y, size, loadIfUncached = true, loadingForLowQ
 		tile.lastAccessed = Date.now();
 	}
 
+	activeTileKeys.add(key);
+
 	let needsFetch = false;
 	if (layers["World"].visible && !tile.fetchedBase) needsFetch = true;
 	if (layers["Obsidian"].visible && !tile.fetchedOverlay) needsFetch = true;
@@ -2313,7 +2315,6 @@ function drawTile(tx, ty, lod, x, y, size, loadIfUncached = true, loadingForLowQ
 
 		const shouldLoad = !tile.loading && (!tile.loaded || needsFetch) && !tile.failed && (Date.now() - tile.firstSeen > actualDwell);
 		if (shouldLoad) {
-			activeTileKeys.add(key);
 			loadTile(lod, tx, ty, loadIfUncached);
 		}
 	}
@@ -2344,8 +2345,6 @@ function drawTile(tx, ty, lod, x, y, size, loadIfUncached = true, loadingForLowQ
 	}
 
 	if (debugGrid) {
-		activeTileKeys.add(key);
-
 		if (layer === 'base') {
 			targetCtx.push();
 			if (tile.loaded && !tile.failed) {
@@ -2367,7 +2366,6 @@ function drawTile(tx, ty, lod, x, y, size, loadIfUncached = true, loadingForLowQ
 	}
 
 	if (tile.loaded) {
-		activeTileKeys.add(key);
 		if (!debugGrid) {
 			if (layerFetched) {
 				if (hasLayerImage) {
@@ -2477,8 +2475,12 @@ function abortTile(key) {
 	const tile = tileCache[key];
 	if (tile && tile.loading && tile.controller) {
 		tile.controller.abort();
-		delete tileCache[key];
+		tile.loading = false;
 		inFlightRequests.delete(key);
+
+		if (!tile.loaded) {
+			delete tileCache[key];
+		}
 	}
 }
 
