@@ -161,14 +161,15 @@ ui {
   position: absolute;
   padding: 0px 15px;
   height: 40px;
-  background-color: rgba(0, 0, 0, 0.7);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  background-color: rgba(0, 0, 0, 0.538);
+  border: 1px solid rgba(255, 255, 255, 0.068);
   border-radius: 25px;
-  backdrop-filter: blur(50px);
+  backdrop-filter: blur(15px);
   display: flex;
   align-items: center;
   gap: 15px;
   color: rgba(255, 255, 255, 0.9);
+  box-shadow: 0px 5px 15px rgba(0, 0, 0, 0.5);
 }
 
 .ui.noFloat {
@@ -240,11 +241,6 @@ ui {
 .searchPanel .item:hover,
 .searchPanel .item.selected {
   background-color: rgba(255, 255, 255, 0.1);
-}
-
-.searchPanel .item .icon {
-  width: 25px;
-  height: 25px;
 }
 
 .searchPanel .item .name {

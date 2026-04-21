@@ -1,8 +1,0 @@
-{
-	"compilerOptions": {
-		"target": "ESNext"
-	},
-	"typeAcquisition": {
-		"include": ["node_modules/q5", "node_modules/p5play"]
-	}
-}
