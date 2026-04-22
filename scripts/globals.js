@@ -94,13 +94,18 @@ let renderSuggestions;
 let isFilterMode = false;
 let isSelectingSuggestion = false;
 let filterSettings = {
-	radius: { icon: "radius", type: "slider", value: 1000, defaultValue: 1000, min: 5, max: 50000 }
+	radius: { icon: "radius", type: "slider", value: 10000, defaultValue: 10000, min: 5, max: 30000000 }
 };
 const dimensionOptions = [
 	{ id: 'overworld', name: 'Overworld Coordinates', icon: 'world' },
 	{ id: 'nether', name: 'Nether Coordinates', icon: 'obsidian' },
 	{ id: 'end', name: 'End Coordinates', icon: 'enderchest' }
 ];
+const formatter = new Intl.NumberFormat('en-US', {
+	notation: 'compact',
+	compactDisplay: 'short',
+	maximumFractionDigits: 1
+});
 
 // UI and misc things
 let uiElements = {};

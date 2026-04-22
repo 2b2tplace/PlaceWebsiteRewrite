@@ -11,12 +11,12 @@ function setup() {
     setupUIEvents();
     setupRightClickMenu();
     loadStateFromURL();
+    createIcons();
     setupSearchUI();
     setupLayersUI();
     setupShareUI();
     setupColorPickerUI();
     setupColorPickerTabs();
-    createIcons();
 }
 
 function draw() {

@@ -28,6 +28,18 @@ function setupUIEvents() {
         document.getElementById('rightClickContext').classList.remove('open');
     });
 
+    const searchHere = document.getElementById('searchhere');
+    searchHere.addEventListener("click", () => {
+        isFilterMode = true;
+        renderFilterPanel();
+        fetchAtlasLocations(`${rightClickCoords.x}, ${rightClickCoords.z}`);
+        searchInput.value = `${rightClickCoords.x}, ${rightClickCoords.z}`;
+        renderSuggestions();
+        const sIcon = document.getElementById('searchIcon');
+        if (sIcon) { changeIcon(sIcon, 'close'); sIcon.style.cursor = 'pointer'; }
+        document.getElementById('rightClickContext').classList.remove('open');
+    });
+
     document.querySelectorAll('.color-swatch').forEach(swatch => {
         swatch.addEventListener('click', (e) => {
             document.querySelectorAll('.color-swatch').forEach(s => s.style.borderColor = 'transparent');

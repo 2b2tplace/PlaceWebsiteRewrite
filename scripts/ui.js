@@ -146,7 +146,7 @@ function renderFilterPanel() {
 
     const resetBtn = createIcon('reset'); resetBtn.style.cursor = 'pointer';
     const sIcon = createIcon(filterSettings.radius.icon);
-    const nameDiv = document.createElement('div'); nameDiv.innerText = 'Radius: ' + Math.round(filterSettings.radius.value);
+    const nameDiv = document.createElement('div'); nameDiv.innerText = 'Radius: ' + formatter.format(Math.round(filterSettings.radius.value / 5) * 5);
     nameDiv.style.flexGrow = '1'; nameDiv.style.fontSize = '17px';
 
     const topRow = document.createElement('div'); topRow.style.display = 'flex'; topRow.style.alignItems = 'center'; topRow.style.gap = '10px';
@@ -156,37 +156,52 @@ function renderFilterPanel() {
     const sliderImg = document.createElement('img'); sliderImg.src = '/icon/slider.png'; sliderImg.className = 'slider';
     bottomRow.appendChild(sliderImg); settingDiv.appendChild(bottomRow); searchPanel.appendChild(settingDiv);
 
-    setupSlider(sliderImg, filterSettings.radius, filterSettings.radius.min, filterSettings.radius.max);
+    setupSlider(sliderImg, filterSettings.radius, filterSettings.radius.min, filterSettings.radius.max, true);
     resetBtn.addEventListener('click', () => {
         if (filterSettings.radius.value !== filterSettings.radius.defaultValue) {
-            filterSettings.radius.value = filterSettings.radius.defaultValue; nameDiv.innerText = 'Radius: ' + Math.round(filterSettings.radius.value); fetchAtlasLocations(searchInput.value);
+            filterSettings.radius.value = filterSettings.radius.defaultValue; nameDiv.innerText = 'Radius: ' + formatter.format(Math.round(filterSettings.radius.value / 5) * 5); fetchAtlasLocations(searchInput.value);
         }
     });
 
     let fetchTimeout;
     updateOnChange(() => filterSettings.radius.value, (val) => {
         resetBtn.style.opacity = (val !== filterSettings.radius.defaultValue) ? 1 : 0.5; resetBtn.style.cursor = (val !== filterSettings.radius.defaultValue) ? 'pointer' : 'default';
-        nameDiv.innerText = 'Radius: ' + Math.round(val / 5) * 5;
-        clearTimeout(fetchTimeout); fetchTimeout = setTimeout(() => { if (searchInput.value) fetchAtlasLocations(searchInput.value, false); }, 100);
+        nameDiv.innerText = 'Radius: ' + formatter.format(Math.round(val / 5) * 5);
+        if (searchInput.value) fetchAtlasLocations(searchInput.value, false);
     });
 
     resetBtn.style.opacity = (filterSettings.radius.value !== filterSettings.radius.defaultValue) ? 1 : 0.5; resetBtn.style.cursor = (filterSettings.radius.value !== filterSettings.radius.defaultValue) ? 'pointer' : 'default';
 }
 
-function setupSlider(imgElement, settingObj, min = 0, max = 1) {
+function setupSlider(imgElement, settingObj, min = 0, max = 1, isExp = false) {
     const minVisual = 3.789062, maxVisual = 95.039063;
+    const range = max - min, visualRange = maxVisual - minVisual;
     const wrapper = document.createElement('div'); wrapper.className = 'slider-wrapper';
     const thumb = createIcon('sliderthumb'); thumb.classList.add('slider-thumb');
     if (settingObj.type == 'hueslider') changeIcon(thumb, 'huethumb');
 
     imgElement.parentNode.insertBefore(wrapper, imgElement); wrapper.appendChild(imgElement); wrapper.appendChild(thumb);
-    const mapValueToVisual = (val) => minVisual + (((val - min) / (max - min)) * (maxVisual - minVisual));
+    const mapValueToVisual = (val) => {
+        if (isExp) {
+            const normalised = (val - min) / range;
+            const percent = Math.pow(normalised, 1 / 5);
+            return minVisual + (percent * visualRange);
+        } else {
+            return minVisual + (((val - min) / (max - min)) * (maxVisual - minVisual));
+        }
+    }
 
     function updatePosition(e) {
-        const rect = imgElement.getBoundingClientRect(), clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        const rect = imgElement.getBoundingClientRect();
+        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
         let percent = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
-        settingObj.value = min + (percent * (max - min));
-        thumb.style.left = mapValueToVisual(settingObj.value) + '%';
+        if (isExp) {
+            settingObj.value = min + (Math.pow(percent, 5) * range);
+            thumb.style.left = (minVisual + (percent * visualRange)) + '%';
+        } else {
+            settingObj.value = min + (percent * (max - min));
+            thumb.style.left = mapValueToVisual(settingObj.value) + '%';
+        }
     }
 
     thumb.style.left = mapValueToVisual(settingObj.value) + '%';
