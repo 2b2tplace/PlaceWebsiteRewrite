@@ -100,7 +100,7 @@ function loadAtlasResult(location) {
     if (descTotalHeight > 122) {
         const descReadMore = document.createElement('div');
         descReadMore.className = 'atlasResultMore';
-        descReadMore.textContent = 'Read More';
+        descReadMore.textContent = 'Show More';
         descReadMore.addEventListener('click', () => {
             if (desc.style.webkitLineClamp == '5') {
                 desc.style.webkitLineClamp = 'unset';
@@ -111,7 +111,7 @@ function loadAtlasResult(location) {
                 desc.style.webkitLineClamp = '5';
                 desc.style.lineClamp = '5';
                 desc.style.overflow = 'hidden';
-                descReadMore.textContent = 'Read More';
+                descReadMore.textContent = 'Show More';
             }
         })
         searchPanel.appendChild(descReadMore);
