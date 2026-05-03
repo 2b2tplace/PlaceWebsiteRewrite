@@ -97,7 +97,9 @@ function loadAtlasResult(location) {
     desc.style.lineClamp = '5';
     desc.style.overflow = 'hidden';
 
-    if (descTotalHeight > 122) {
+    console.log(descTotalHeight);
+
+    if (descTotalHeight > 124) {
         const descReadMore = document.createElement('div');
         descReadMore.className = 'atlasResultMore';
         descReadMore.textContent = 'Show More';
