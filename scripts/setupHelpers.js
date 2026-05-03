@@ -5,7 +5,7 @@ function setupAPI() {
             allAtlasLocations = data.map(loc => {
                 let dim = 0;
                 if (loc.end_dimension === "1") dim = 2;
-                return { name: loc.name, x: parseFloat(loc.x), z: parseFloat(loc.z), dim: dim, uuid: loc.location_uuid, desc: loc.description };
+                return { name: loc.name, x: parseFloat(loc.x), z: parseFloat(loc.z), dim: dim, dimId: (dim == 0) ? 'overworld' : (dim == 1) ? 'nether' : 'end', uuid: loc.location_uuid, desc: loc.description, wiki: loc.wiki || null, video: loc.video_url || null, content: loc };
             });
             if (searchInput && searchInput.value) fetchAtlasLocations(searchInput.value);
         })
@@ -16,7 +16,7 @@ function setupAPI() {
         .then(blob => createImageBitmap(blob))
         .then(bitmap => { solidBitmap = bitmap; });
 
-    markerColors.forEach(col => { markerIcons[col] = loadImage(`/icon/worldPin${col}.png`); });
+    waypointColors.forEach(col => { waypointIcons[col] = loadImage(`/icon/worldPin${col}.png`); });
     pinIcon = loadImage('/icon/worldPinBlack.png');
     pinEnd = loadImage('/icon/worldPinEnd.png');
 }
@@ -30,7 +30,7 @@ function setupUIEvents() {
 
     const searchHere = document.getElementById('searchhere');
     searchHere.addEventListener("click", () => {
-        isFilterMode = true;
+        searchState = 'filter';
         renderFilterPanel();
         fetchAtlasLocations(`${rightClickCoords.x}, ${rightClickCoords.z}`);
         searchInput.value = `${rightClickCoords.x}, ${rightClickCoords.z}`;
@@ -44,24 +44,26 @@ function setupUIEvents() {
         swatch.addEventListener('click', (e) => {
             document.querySelectorAll('.color-swatch').forEach(s => s.style.borderColor = 'transparent');
             e.target.style.borderColor = 'white';
-            selectedMarkerColor = e.target.getAttribute('data-color');
+            selectedWaypointColor = e.target.getAttribute('data-color');
         });
     });
 
-    document.getElementById('placemarker').addEventListener("click", () => openMarkerEditDialog(null));
-    const editmarker = document.getElementById('editmarker');
-    if (editmarker) editmarker.addEventListener("click", () => { if (activeHoveredMarker) openMarkerEditDialog(activeHoveredMarker); });
+    document.getElementById('placewaypoint').addEventListener("click", () => openWaypointEditDialog(null));
+    const editwaypoint = document.getElementById('editwaypoint');
+    if (editwaypoint) editwaypoint.addEventListener("click", () => { if (activeHoveredWaypoint) openWaypointEditDialog(activeHoveredWaypoint); });
 
-    document.getElementById('removemarker').addEventListener("click", () => {
-        if (activeHoveredMarker) tempMarkers = tempMarkers.filter(m => m !== activeHoveredMarker);
+    document.getElementById('removewaypoint').addEventListener("click", () => {
+        if (activeHoveredWaypoint) tempWaypoints = tempWaypoints.filter(m => m !== activeHoveredWaypoint);
         document.getElementById('rightClickContext').classList.remove('open');
     });
 
     window.addEventListener('mousedown', (e) => {
         if (e.target.tagName.toLowerCase() === 'canvas') {
             if (document.activeElement === searchInput) searchInput.blur();
-            searchPanel.classList.remove('open');
-            isFilterMode = false;
+            if (searchState != 'result') {
+                searchPanel.classList.remove('open');
+                searchState == null;
+            }
         }
         const context = document.getElementById('rightClickContext');
         if (!context.contains(e.target)) context.classList.remove('open');
@@ -78,30 +80,30 @@ function setupRightClickMenu() {
             const wMouse = getWorldMouse();
             rightClickCoords.x = Math.round(wMouse.x);
             rightClickCoords.z = Math.round(wMouse.y);
-            activeHoveredMarker = null;
+            activeHoveredWaypoint = null;
             const currentScale = 1 / camera.zoom;
             const iconHitbox = 32 * currentScale;
 
-            for (let i = tempMarkers.length - 1; i >= 0; i--) {
-                let m = tempMarkers[i];
+            for (let i = tempWaypoints.length - 1; i >= 0; i--) {
+                let m = tempWaypoints[i];
                 let mDim = m.dim !== undefined ? m.dim : 0;
                 if ((mDim === 2) !== (currentDimension === 2)) continue;
                 let mx = currentDimension === 1 ? m.x / 8 : m.x;
                 let mz = currentDimension === 1 ? m.z / 8 : m.z;
                 if (wMouse.x >= mx - iconHitbox / 2 && wMouse.x <= mx + iconHitbox / 2 && wMouse.y >= mz - iconHitbox && wMouse.y <= mz) {
-                    activeHoveredMarker = m;
+                    activeHoveredWaypoint = m;
                     break;
                 }
             }
 
-            if (activeHoveredMarker) {
-                document.getElementById('placemarker').style.display = 'none';
-                document.getElementById('editmarker').style.display = '';
-                document.getElementById('removemarker').style.display = '';
+            if (activeHoveredWaypoint) {
+                document.getElementById('placewaypoint').style.display = 'none';
+                document.getElementById('editwaypoint').style.display = '';
+                document.getElementById('removewaypoint').style.display = '';
             } else {
-                document.getElementById('placemarker').style.display = '';
-                document.getElementById('editmarker').style.display = 'none';
-                document.getElementById('removemarker').style.display = 'none';
+                document.getElementById('placewaypoint').style.display = '';
+                document.getElementById('editwaypoint').style.display = 'none';
+                document.getElementById('removewaypoint').style.display = 'none';
             }
 
             const context = document.getElementById('rightClickContext');
@@ -180,7 +182,7 @@ function setupSearchUI() {
             changeIcon(searchIcon, 'search');
             searchIcon.style.cursor = 'default';
             atlasLocations = [];
-            tempMarkers = tempMarkers.filter(m => !m.isSearch);
+            tempWaypoints = tempWaypoints.filter(m => !m.isSearch);
             renderSuggestions();
             searchInput.focus();
         }
@@ -204,16 +206,22 @@ function setupSearchUI() {
 
     filterIcon.addEventListener('click', (e) => {
         e.stopPropagation();
-        isFilterMode = !isFilterMode;
-        if (isFilterMode) renderFilterPanel();
-        else {
-            if (searchInput.value || recentSearches.length > 0) renderSuggestions();
-            else searchPanel.classList.remove('open');
-        }
+        if (searchState == 'filter') {
+            searchState = null
+            searchPanel.classList.remove('open');
+        } else if (searchState != 'filter') {
+            searchState = 'filter';
+            renderFilterPanel();
+        };
+        // if (searchState != 'result') renderFilterPanel();
+        // else {
+        //     if (searchInput.value || recentSearches.length > 0) renderSuggestions();
+        //     else searchPanel.classList.remove('open');
+        // }
     });
 
     renderSuggestions = () => {
-        if (isFilterMode) return;
+        if (searchState == 'filter') return;
 
         const parsed = getParsedInput(searchInput.value);
         currentSuggestions = [];
@@ -283,9 +291,19 @@ function setupSearchUI() {
                 let dimId = loc.dim === 2 ? 'end' : (loc.dim === 1 ? 'nether' : 'overworld');
                 let icon = loc.dim === 2 ? 'enderchest' : (loc.dim === 1 ? 'obsidian' : 'world');
                 currentSuggestions.push({
-                    type: 'location', name: loc.name, x: loc.x, z: loc.z,
-                    dimId: dimId, dim: loc.dim, icon: icon,
-                    tag: `${dimId}: ${loc.x}, ${loc.z}`, source: 'atlas'
+                    type: 'location',
+                    name: loc.name,
+                    x: loc.x,
+                    z: loc.z,
+                    dimId: dimId,
+                    dim: loc.dim,
+                    icon: icon,
+                    tag: `${dimId}: ${loc.x}, ${loc.z}`,
+                    desc: loc.desc,
+                    source: 'atlas',
+                    uuid: loc.uuid,
+                    wiki: loc.wiki || null,
+                    video: loc.video || null
                 });
             });
         }
@@ -404,7 +422,7 @@ function setupSearchUI() {
 
 function setupSearchInputEvents() {
     searchInput.addEventListener('input', () => {
-        isFilterMode = false;
+        searchState = null;
         selectedSuggestionIndex = 0;
         const sIcon = document.getElementById('searchIcon');
         if (searchInput.value.length > 0) {
@@ -440,21 +458,21 @@ function setupSearchInputEvents() {
                 addRecentSearch(searchInput.value);
                 handleCoordinateSearch(searchInput.value);
                 searchPanel.classList.remove('open');
-                isFilterMode = false;
+                searchState = null;
             }
             searchInput.blur();
         } else if (e.key === 'Escape') searchInput.blur();
     });
 
     searchInput.addEventListener('focus', () => {
-        isFilterMode = false;
+        searchState = null;
         fetchAtlasLocations(searchInput.value);
         renderSuggestions();
     });
 
     searchInput.addEventListener('click', () => {
         if (!searchPanel.classList.contains('open')) {
-            isFilterMode = false;
+            searchState = null;
             fetchAtlasLocations(searchInput.value);
             renderSuggestions();
         }
@@ -468,9 +486,9 @@ function setupSearchInputEvents() {
             const isOverPanel = searchPanel.matches(':hover');
             const isOverFilter = document.getElementById('filterIcon')?.matches(':hover');
             const isOverSearchIcon = document.getElementById('searchIcon')?.matches(':hover');
-            if (isOverPanel || isOverFilter || isOverSearchIcon) return;
+            if (isOverPanel || isOverFilter || isOverSearchIcon || searchState == 'result') return;
             searchPanel.classList.remove('open');
-            isFilterMode = false;
+            searchState = null;
         }, 150);
     });
 }
@@ -568,14 +586,14 @@ function setupShareUI() {
             changeIcon(searchItem.icon, copyLinkSettings["Current Search"] ? 'checked' : 'unchecked');
         }
 
-        const markerItem = items["Temporary Markers"];
-        if (tempMarkers.length < 1) {
-            copyLinkSettings["Temporary Markers"] = false;
-            markerItem.item.classList.add('disabled-by-system');
-            changeIcon(markerItem.icon, 'unchecked');
+        const waypointItem = items["Temporary Waypoints"];
+        if (tempWaypoints.length < 1) {
+            copyLinkSettings["Temporary Waypoints"] = false;
+            waypointItem.item.classList.add('disabled-by-system');
+            changeIcon(waypointItem.icon, 'unchecked');
         } else {
-            markerItem.item.classList.remove('disabled-by-system');
-            changeIcon(markerItem.icon, copyLinkSettings["Temporary Markers"] ? 'checked' : 'unchecked');
+            waypointItem.item.classList.remove('disabled-by-system');
+            changeIcon(waypointItem.icon, copyLinkSettings["Temporary Waypoints"] ? 'checked' : 'unchecked');
         }
 
         document.getElementById('copyLinkText').value = createURL();

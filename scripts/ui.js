@@ -1,19 +1,19 @@
-function openMarkerEditDialog(marker = null) {
+function openWaypointEditDialog(waypoint = null) {
     document.getElementById('rightClickContext').classList.remove('open');
-    document.getElementById('markerDialogueScreen').classList.add('open');
+    document.getElementById('waypointDialogueScreen').classList.add('open');
 
-    editingMarker = marker;
-    const markerNameInput = document.getElementById('markerNameInput');
-    markerNameInput.value = marker ? marker.name : '';
-    markerNameInput.focus();
+    editingWaypoint = waypoint;
+    const waypointNameInput = document.getElementById('waypointNameInput');
+    waypointNameInput.value = waypoint ? waypoint.name : '';
+    waypointNameInput.focus();
 
-    const closeBtn = document.getElementById('closeMarkerDialog');
-    if (closeBtn) closeBtn.onclick = () => document.getElementById('markerDialogueScreen').classList.remove('open');
+    const closeBtn = document.getElementById('closeWaypointDialog');
+    if (closeBtn) closeBtn.onclick = () => document.getElementById('waypointDialogueScreen').classList.remove('open');
 
-    const owX = document.getElementById('markerOverworldX'), owZ = document.getElementById('markerOverworldZ');
-    const neX = document.getElementById('markerNetherX'), neZ = document.getElementById('markerNetherZ');
-    let baseX = marker ? marker.x : (currentDimension === 1 ? rightClickCoords.x * 8 : rightClickCoords.x);
-    let baseZ = marker ? marker.z : (currentDimension === 1 ? rightClickCoords.z * 8 : rightClickCoords.z);
+    const owX = document.getElementById('waypointOverworldX'), owZ = document.getElementById('waypointOverworldZ');
+    const neX = document.getElementById('waypointNetherX'), neZ = document.getElementById('waypointNetherZ');
+    let baseX = waypoint ? waypoint.x : (currentDimension === 1 ? rightClickCoords.x * 8 : rightClickCoords.x);
+    let baseZ = waypoint ? waypoint.z : (currentDimension === 1 ? rightClickCoords.z * 8 : rightClickCoords.z);
 
     const updateCoords = (dim) => {
         if (dim === 'overworld') { neX.value = Math.floor(parseFloat(owX.value || 0) / 8); neZ.value = Math.floor(parseFloat(owZ.value || 0) / 8); }
@@ -27,35 +27,35 @@ function openMarkerEditDialog(marker = null) {
     neX.oninput = () => updateCoords('nether'); neZ.oninput = () => updateCoords('nether');
 
     const showCoordsContainer = document.getElementById('showCoords'); showCoordsContainer.innerHTML = '';
-    let markerShowCoords = marker ? marker.showCoords : false;
-    let coordIcon = createIcon(markerShowCoords ? 'checked' : 'unchecked');
+    let waypointShowCoords = waypoint ? waypoint.showCoords : false;
+    let coordIcon = createIcon(waypointShowCoords ? 'checked' : 'unchecked');
     showCoordsContainer.append(coordIcon, "Show Coordinates");
-    showCoordsContainer.onclick = () => { markerShowCoords = !markerShowCoords; changeIcon(coordIcon, markerShowCoords ? 'checked' : 'unchecked'); };
+    showCoordsContainer.onclick = () => { waypointShowCoords = !waypointShowCoords; changeIcon(coordIcon, waypointShowCoords ? 'checked' : 'unchecked'); };
 
-    if (marker && marker.color) selectedMarkerColor = marker.color;
-    const markerColours = document.getElementById('markerColours'); markerColours.innerHTML = '';
-    markerColors.forEach(colour => {
+    if (waypoint && waypoint.color) selectedWaypointColor = waypoint.color;
+    const waypointColours = document.getElementById('waypointColours'); waypointColours.innerHTML = '';
+    waypointColors.forEach(colour => {
         let option = createIcon(`worldPin${colour}`);
         option.classList.add('item');
-        if (selectedMarkerColor == colour) option.classList.add('selected');
+        if (selectedWaypointColor == colour) option.classList.add('selected');
         option.onclick = () => {
-            selectedMarkerColor = colour; Array.from(markerColours.children).forEach(child => child.classList.remove('selected')); option.classList.add('selected');
+            selectedWaypointColor = colour; Array.from(waypointColours.children).forEach(child => child.classList.remove('selected')); option.classList.add('selected');
         };
-        markerColours.appendChild(option);
+        waypointColours.appendChild(option);
     });
 
-    document.getElementById('saveMarker').onclick = () => {
-        const mName = markerNameInput.value.trim();
+    document.getElementById('saveWaypoint').onclick = () => {
+        const mName = waypointNameInput.value.trim();
         let finalX = parseFloat(owX.value), finalZ = parseFloat(owZ.value);
         if (isNaN(finalX)) finalX = 0; if (isNaN(finalZ)) finalZ = 0;
 
-        if (editingMarker) {
-            editingMarker.name = mName; editingMarker.x = finalX; editingMarker.z = finalZ;
-            editingMarker.color = selectedMarkerColor; editingMarker.showCoords = markerShowCoords; editingMarker.isSearch = false;
+        if (editingWaypoint) {
+            editingWaypoint.name = mName; editingWaypoint.x = finalX; editingWaypoint.z = finalZ;
+            editingWaypoint.color = selectedWaypointColor; editingWaypoint.showCoords = waypointShowCoords; editingWaypoint.isSearch = false;
         } else {
-            tempMarkers.push({ x: finalX, z: finalZ, name: mName, color: selectedMarkerColor, showCoords: markerShowCoords, isSearch: false, dim: currentDimension === 2 ? 2 : 0 });
+            tempWaypoints.push({ x: finalX, z: finalZ, name: mName, color: selectedWaypointColor, showCoords: waypointShowCoords, isSearch: false, dim: currentDimension === 2 ? 2 : 0 });
         }
-        document.getElementById('markerDialogueScreen').classList.remove('open'); updateMapURL();
+        document.getElementById('waypointDialogueScreen').classList.remove('open'); updateMapURL();
     };
 }
 

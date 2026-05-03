@@ -46,29 +46,132 @@ function fetchAtlasLocations(query, showSuggestionsAfter = true) {
     if (typeof renderSuggestions === 'function' && showSuggestionsAfter) renderSuggestions();
 }
 
+// Show more info about a waypoint
+function loadAtlasResult(location) {
+    const result = resultsLibrary.find(item => item.uuid === location.uuid);
+    searchPanel.innerHTML = '';
+    searchPanel.classList.add('open');
+
+    const banner = document.createElement('div');
+    banner.className = 'atlasResultBanner';
+    if (result) {
+        banner.style.background = `url(${result.image_url})`;
+        banner.style.backgroundSize = 'cover';
+        banner.style.backgroundPosition = 'center';
+    }
+
+    const title = document.createElement('div');
+    title.className = 'atlasResultTitle';
+    title.textContent = location.name;
+
+    const type = document.createElement('div');
+    type.className = 'atlasResultType';
+    if (location.name != 'End Portal') {
+        type.textContent = 'Point Of Interest';
+    } else {
+        type.textContent = 'Structure';
+    }
+
+    const desc = document.createElement('div');
+    desc.className = 'atlasResultDesc';
+    desc.style.webkitLineClamp = '5';
+    desc.style.overflow = 'hidden';
+    const descSubtitle = document.createElement('div');
+    descSubtitle.className = 'atlasResultSubheading'
+    descSubtitle.textContent = 'About';
+    desc.append(descSubtitle, result ? result.summary : (location.desc || 'No Information Currently.'));
+
+    const locCoords = document.createElement('div');
+    locCoords.textContent = `${location.x}, ${location.z} in the ${location.dimId.charAt(0).toUpperCase() + location.dimId.slice(1)}`
+    const loc = document.createElement('div');
+    loc.className = 'atlasResultLocation';
+    loc.append(createIcon('pin'), locCoords);
+
+    searchPanel.append(banner, title, type, loc, desc);
+
+    desc.style.webkitLineClamp = 'unset';
+    desc.style.lineClamp = 'unset';
+    desc.style.overflow = 'unset';
+    const descTotalHeight = desc.scrollHeight;
+    desc.style.webkitLineClamp = '5';
+    desc.style.lineClamp = '5';
+    desc.style.overflow = 'hidden';
+
+    if (descTotalHeight > 122) {
+        const descReadMore = document.createElement('div');
+        descReadMore.className = 'atlasResultMore';
+        descReadMore.textContent = 'Read More';
+        descReadMore.addEventListener('click', () => {
+            if (desc.style.webkitLineClamp == '5') {
+                desc.style.webkitLineClamp = 'unset';
+                desc.style.lineClamp = 'unset';
+                desc.style.overflow = 'unset';
+                descReadMore.textContent = 'Show Less';
+            } else {
+                desc.style.webkitLineClamp = '5';
+                desc.style.lineClamp = '5';
+                desc.style.overflow = 'hidden';
+                descReadMore.textContent = 'Read More';
+            }
+        })
+        searchPanel.appendChild(descReadMore);
+    }
+
+    if (location.wiki || location.video) {
+        const extra = document.createElement('div');
+        extra.className = 'atlasResultExtra';
+        if (location.wiki) {
+            const wiki = document.createElement('div');
+            wiki.className = 'atlasResultPill';
+            wiki.append(createIcon('world'), 'Wiki');
+            wiki.addEventListener('click', () => {
+                window.open(location.wiki, '_blank');
+            });
+            extra.appendChild(wiki);
+        }
+        if (location.video) {
+            const video = document.createElement('div');
+            video.className = 'atlasResultPill';
+            video.append(createIcon('play'), 'Video')
+            video.addEventListener('click', () => {
+                window.open(location.video, '_blank');
+            });
+            extra.appendChild(video);
+        }
+        searchPanel.append(extra);
+    }
+}
+
+function findViaUUID(uuid) {
+    const result = allAtlasLocations.find(item => item.uuid === uuid);
+    return result || null;
+}
+
 function selectSuggestion(sug) {
     const sIcon = document.getElementById('searchIcon');
     if (sIcon) { changeIcon(sIcon, 'close'); sIcon.style.cursor = 'pointer'; }
 
     if (sug.type === 'recent_query') {
         searchInput.value = sug.text;
-        fetchAtlasLocations(sug.text, false);
+        fetchAtlasLocations(sug.text, true);
         if (atlasLocations.length > 0) {
             let loc = atlasLocations[0];
             let dimId = loc.dim === 2 ? 'end' : (loc.dim === 1 ? 'nether' : 'overworld');
             handleCoordinateSearch(`${dimId}: ${loc.x}, ${loc.z}`, false);
         } else handleCoordinateSearch(sug.text, false);
+        searchState = null;
     } else if (sug.source == 'coordinates') {
         searchInput.value = sug.tag;
         handleCoordinateSearch(`${sug.dimId}: ${sug.x}, ${sug.z}`);
+        searchPanel.classList.remove('open');
+        searchState = null;
     } else {
+        searchState = 'result';
         searchInput.value = sug.name;
-        fetchAtlasLocations(sug.name, false);
+        // fetchAtlasLocations(sug.name, false);
         handleCoordinateSearch(`${sug.dimId}: ${sug.x}, ${sug.z}`, false);
+        loadAtlasResult(sug);
     }
-
-    searchPanel.classList.remove('open');
-    isFilterMode = false;
 }
 
 function addRecentSearch(query) {
@@ -81,7 +184,7 @@ function addRecentSearch(query) {
     try { localStorage.setItem('recentSearches', JSON.stringify(recentSearches)); } catch (e) { }
 }
 
-function handleCoordinateSearch(val, createTempMarker = true) {
+function handleCoordinateSearch(val, createTempWaypoint = true) {
     const isEnd = val.toLowerCase().includes('end:');
     const isNether = val.toLowerCase().includes('nether:');
     const isOverworld = val.toLowerCase().includes('overworld:');
@@ -92,9 +195,9 @@ function handleCoordinateSearch(val, createTempMarker = true) {
         if (!isNaN(x) && !isNaN(z)) {
             if (isNether) currentDimension = 1; else if (isOverworld) currentDimension = 0; else if (isEnd) currentDimension = 2;
 
-            if (createTempMarker) {
-                tempMarkers = tempMarkers.filter(m => !m.isSearch);
-                tempMarkers.push({
+            if (createTempWaypoint) {
+                tempWaypoints = tempWaypoints.filter(m => !m.isSearch);
+                tempWaypoints.push({
                     x: currentDimension === 1 ? x * 8 : x, z: currentDimension === 1 ? z * 8 : z,
                     name: '', color: 'Red', showCoords: true, isSearch: true, dim: currentDimension === 2 ? 2 : 0
                 });
@@ -167,7 +270,7 @@ function getLevenshteinDistance(a, b) {
 }
 
 renderSuggestions = () => {
-    if (isFilterMode) return;
+    if (searchState == 'filter') return;
     const parsed = getParsedInput(searchInput.value);
     currentSuggestions = [];
 

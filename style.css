@@ -457,7 +457,7 @@ ui:has(.layers:not(.open)) .layersettings {
 }
 
 .copyLinkScreen,
-.markerDialogueScreen {
+.waypointDialogueScreen {
   z-index: 99999;
   position: absolute;
   width: 100vw;
@@ -469,12 +469,12 @@ ui:has(.layers:not(.open)) .layersettings {
 }
 
 .copyLinkScreen.open,
-.markerDialogueScreen.open {
+.waypointDialogueScreen.open {
   display: flex;
 }
 
 .copyLinkDialogue,
-.markerDialogue,
+.waypointDialogue,
 .picker {
   height: unset;
   flex-direction: column;
@@ -488,7 +488,7 @@ ui:has(.layers:not(.open)) .layersettings {
 }
 
 .copyLinkDialogue .heading,
-.markerDialogue .heading,
+.waypointDialogue .heading,
 .picker .heading {
   background-color: rgba(255, 255, 255, 0.05);
   padding: 10px 15px;
@@ -500,7 +500,7 @@ ui:has(.layers:not(.open)) .layersettings {
 }
 
 .copyLinkDialogue .title,
-.markerDialogue .title,
+.waypointDialogue .title,
 .picker .title {
   display: flex;
   align-items: center;
@@ -512,13 +512,13 @@ ui:has(.layers:not(.open)) .layersettings {
 }
 
 .copyLinkDialogue .title .icon:hover,
-.markerDialogue .title .icon:hover,
+.waypointDialogue .title .icon:hover,
 .picker .title .icon:hover {
   cursor: pointer;
 }
 
 .copyLinkDialogue .body,
-.markerDialogue .body,
+.waypointDialogue .body,
 .picker .body {
   padding: 15px 15px;
   display: flex;
@@ -528,7 +528,7 @@ ui:has(.layers:not(.open)) .layersettings {
 }
 
 .copyLinkDialogue .subheading,
-.markerDialogue .subheading,
+.waypointDialogue .subheading,
 .picker .subheading {
   display: flex;
   align-items: center;
@@ -708,11 +708,11 @@ ui:has(.layers:not(.open)) .layersettings {
   }
 }
 
-.markerDialogue .body {
+.waypointDialogue .body {
   gap: 15px;
 }
 
-.markerDialogue .markerNameInput {
+.waypointDialogue .waypointNameInput {
   background-color: transparent;
   outline: none;
   border: none;
@@ -720,12 +720,12 @@ ui:has(.layers:not(.open)) .layersettings {
   border-bottom: solid 2px rgba(255, 255, 255, 0.248);
 }
 
-.markerDialogue .markerColours {
+.waypointDialogue .waypointColours {
   display: flex;
   gap: 10px;
 }
 
-.markerDialogue .item {
+.waypointDialogue .item {
   padding: 10px;
   background-color: rgba(255, 255, 255, 0.054);
   width: 30px;
@@ -733,23 +733,23 @@ ui:has(.layers:not(.open)) .layersettings {
   border-radius: 10px;
 }
 
-.markerDialogue .item:hover {
+.waypointDialogue .item:hover {
   background-color: rgba(255, 255, 255, 0.144);
   cursor: pointer;
 }
 
-.markerDialogue .item.selected {
+.waypointDialogue .item.selected {
   border: solid 2px rgba(255, 255, 255, 0.69);
   padding: 8px;
 }
 
-.markerDialogue .showCoords {
+.waypointDialogue .showCoords {
   display: flex;
   align-items: center;
   gap: 10px;
 }
 
-.markerDialogue .saveMarker {
+.waypointDialogue .saveWaypoint {
   border-radius: 12px;
   outline: none;
   border: none;
@@ -764,12 +764,12 @@ ui:has(.layers:not(.open)) .layersettings {
   margin-right: 15px;
 }
 
-.markerDialogue .saveMarker:hover {
+.waypointDialogue .saveWaypoint:hover {
   background-color: rgba(255, 255, 255, 0.395);
   cursor: pointer;
 }
 
-.markerCoords {
+.waypointCoords {
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -941,4 +941,75 @@ ui:has(.layers:not(.open)) .layersettings {
 .slider-input[type=number] {
   -moz-appearance: textfield;
   appearance: textfield;
+}
+
+.atlasResultBanner {
+  position: absolute;
+  background: url('/icon/image.png') no-repeat center / 50px, #898989;
+  width: 100%;
+  height: 200px;
+  margin-left: -12px;
+  margin-top: -10px;
+  -webkit-mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 1), rgba(0, 0, 0, 0));
+  mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 1), rgba(0, 0, 0, 0));
+}
+
+.atlasResultTitle {
+  margin-top: 135px;
+  font-size: 30px;
+  font-weight: 500;
+}
+
+.atlasResultSubheading {
+  font-size: 20px;
+  font-weight: 400;
+  color: white;
+}
+
+.atlasResultType {
+  font-size: 12px;
+  opacity: 0.65;
+  margin-top: -5px;
+}
+
+.atlasResultLocation {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin: 10px 0px;
+}
+
+.atlasResultDesc {
+  font-size: 15px;
+  color: rgba(255, 255, 255, 0.7);
+  display: -webkit-box;
+  -webkit-line-clamp: 5;
+  line-clamp: 5;
+  -webkit-box-orient: vertical;  
+  overflow: hidden;
+}
+
+.atlasResultMore {
+  color: rgb(208, 208, 255);
+  font-weight: 400;
+  font-size: 15px;
+  cursor: pointer;
+}
+
+.atlasResultExtra {
+  display: flex;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.atlasResultPill {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background-color: rgba(255, 255, 255, 0.1);
+  border-radius: 50px;
+  padding: 5px 15px 5px 13px;
+  font-size: 15px;
+  font-weight: 400;
+  cursor: pointer;
 }

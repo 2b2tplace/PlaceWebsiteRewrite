@@ -115,7 +115,7 @@ function drawVisibleLayers(tileSize, isFastMoving, dynamicDwell) {
     }
 }
 
-function handleHoveredMarker() {
+function handleHoveredWaypoint() {
     push();
     const scaleAmount = 1 / camera.zoom;
     const wMouse = getWorldMouse();
@@ -123,16 +123,16 @@ function handleHoveredMarker() {
 
     const isContextMenuOpen = document.getElementById('rightClickContext').classList.contains('open');
     if (!isContextMenuOpen) {
-        activeHoveredMarker = null;
-        for (let i = tempMarkers.length - 1; i >= 0; i--) {
-            let m = tempMarkers[i];
+        activeHoveredWaypoint = null;
+        for (let i = tempWaypoints.length - 1; i >= 0; i--) {
+            let m = tempWaypoints[i];
             let mDim = m.dim !== undefined ? m.dim : 0;
             if ((mDim === 2) !== (currentDimension === 2)) continue;
             let mx = currentDimension === 1 ? m.x / 8 : m.x;
             let mz = currentDimension === 1 ? m.z / 8 : m.z;
             if (wMouse.x >= mx - iconSize / 2 && wMouse.x <= mx + iconSize / 2 &&
                 wMouse.y >= mz - iconSize && wMouse.y <= mz) {
-                activeHoveredMarker = m;
+                activeHoveredWaypoint = m;
                 break;
             }
         }

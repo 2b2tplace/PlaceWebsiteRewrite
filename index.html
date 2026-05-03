@@ -3,7 +3,7 @@
 
 <head>
 	<meta charset="UTF-8" />
-	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
 	<link rel="icon" href="/favicon.ico" sizes="any">
 	<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
 	<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png">
@@ -127,17 +127,17 @@
 				Search Here
 			</div>
 			<div class="divider"></div>
-			<div class="item" id="placemarker">
+			<div class="item" id="placewaypoint">
 				<icon>addpin</icon>
-				Place Marker
+				Place Waypoint
 			</div>
-			<div class="item" id="editmarker">
+			<div class="item" id="editwaypoint">
 				<icon>settings</icon>
-				Edit Marker
+				Edit Waypoint
 			</div>
-			<div class="item" id="removemarker">
+			<div class="item" id="removewaypoint">
 				<icon>removepin</icon>
-				Remove Marker
+				Remove Waypoint
 			</div>
 		</div>
 		<div class="copyLinkScreen" id="copyLinkScreen">
@@ -165,30 +165,30 @@
 				</div>
 			</div>
 		</div>
-		<div class="markerDialogueScreen" id="markerDialogueScreen">
-			<div class="markerDialogue ui noFloat">
+		<div class="waypointDialogueScreen" id="waypointDialogueScreen">
+			<div class="waypointDialogue ui noFloat">
 				<div class="heading">
-					<div class="title" id="markerTitle">Place Marker<icon id="closeMarkerDialog">close</icon>
+					<div class="title" id="waypointTitle">Place Waypoint<icon id="closeWaypointDialog">close</icon>
 					</div>
 				</div>
 				<div class="body">
-					<input class="markerNameInput" type="text" id="markerNameInput" placeholder="Marker Name">
-					<div class="markerCoords">
+					<input class="waypointNameInput" type="text" id="waypointNameInput" placeholder="Waypoint Name">
+					<div class="waypointCoords">
 						<div class="coordInput">
 							<label>Overworld</label>
-							<input type="number" id="markerOverworldX" placeholder="X">
-							<input type="number" id="markerOverworldZ" placeholder="Z">
+							<input type="number" id="waypointOverworldX" placeholder="X">
+							<input type="number" id="waypointOverworldZ" placeholder="Z">
 						</div>
 						<div class="coordInput">
 							<label>Nether</label>
-							<input type="number" id="markerNetherX" placeholder="X">
-							<input type="number" id="markerNetherZ" placeholder="Z">
+							<input type="number" id="waypointNetherX" placeholder="X">
+							<input type="number" id="waypointNetherZ" placeholder="Z">
 						</div>
 					</div>
-					<div class="markerColours" id="markerColours"></div>
+					<div class="waypointColours" id="waypointColours"></div>
 					<div class="showCoords" id="showCoords"></div>
 				</div>
-				<button class="saveMarker" id="saveMarker">
+				<button class="saveWaypoint" id="saveWaypoint">
 					<icon>pin</icon>Save
 				</button>
 			</div>

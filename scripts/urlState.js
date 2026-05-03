@@ -20,11 +20,11 @@ function encodeURL({ lat = Math.round(camera.x), lng = Math.round(camera.y), cam
         if (hasLayerSettingsChanged()) featureMask |= 1;
         const searchVal = document.getElementById('search').value.trim();
         if (searchVal && (atlasLocations.length > 0 || getParsedInput(searchVal) !== null)) featureMask |= 2;
-        if (tempMarkers.length > 0) featureMask |= 4;
+        if (tempWaypoints.length > 0) featureMask |= 4;
     } else {
         if (copyLinkSettings["Layer Settings"] && hasLayerSettingsChanged()) featureMask |= 1;
         if (copyLinkSettings["Current Search"]) featureMask |= 2;
-        if (copyLinkSettings["Temporary Markers"] && tempMarkers.length > 0) featureMask |= 4;
+        if (copyLinkSettings["Temporary Waypoints"] && tempWaypoints.length > 0) featureMask |= 4;
     }
 
     if (featureMask > 0) {
@@ -55,10 +55,10 @@ function encodeURL({ lat = Math.round(camera.x), lng = Math.round(camera.y), cam
             stream.writeString(saveSearch);
         }
         if (featureMask & 4) {
-            stream.writeVarint(tempMarkers.length);
-            tempMarkers.forEach(m => {
+            stream.writeVarint(tempWaypoints.length);
+            tempWaypoints.forEach(m => {
                 stream.writeVarint(zigzag(Math.round(m.x))); stream.writeVarint(zigzag(Math.round(m.z)));
-                let colorIdx = markerColors.indexOf(m.color);
+                let colorIdx = waypointColors.indexOf(m.color);
                 stream.writeBits(colorIdx === -1 ? 0 : colorIdx, 3); stream.writeBits(m.showCoords ? 1 : 0, 1); stream.writeString(m.name || "");
             });
         }
@@ -99,7 +99,7 @@ function decodeURL(base64String) {
             const count = stream.readVarint();
             for (let i = 0; i < count; i++) {
                 const mx = unzigzag(stream.readVarint()), mz = unzigzag(stream.readVarint()), colorIdx = stream.readBits(3), showCoords = stream.readBits(1) === 1, mName = stream.readString();
-                tempMarkers.push({ x: mx, z: mz, color: markerColors[colorIdx] || 'Red', showCoords: showCoords, name: mName, dim: currentDimension === 2 ? 2 : 0 });
+                tempWaypoints.push({ x: mx, z: mz, color: waypointColors[colorIdx] || 'Red', showCoords: showCoords, name: mName, dim: currentDimension === 2 ? 2 : 0 });
             }
         }
     }

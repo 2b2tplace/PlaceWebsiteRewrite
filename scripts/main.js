@@ -44,7 +44,7 @@ function draw() {
     pop();
 
     drawPinsAndLabels();
-    handleHoveredMarker();
+    handleHoveredWaypoint();
 
     if (frameCount % 120 == 0) pruneCache();
     cleanupInFlightRequests();
@@ -88,20 +88,20 @@ function drawPinsAndLabels() {
     }
 
     push();
-    tempMarkers.forEach(marker => {
-        let mDim = marker.dim !== undefined ? marker.dim : 0;
+    tempWaypoints.forEach(waypoint => {
+        let mDim = waypoint.dim !== undefined ? waypoint.dim : 0;
         if ((mDim === 2) !== (currentDimension === 2)) return;
 
-        let mx = marker.x, mz = marker.z;
+        let mx = waypoint.x, mz = waypoint.z;
         if (currentDimension === 1) { mx /= 8; mz /= 8; }
 
-        let screenPos = worldToScreen(mx, mz), iconSize = 32, img = markerIcons[marker.color];
+        let screenPos = worldToScreen(mx, mz), iconSize = 32, img = waypointIcons[waypoint.color];
         image(img, screenPos.x - iconSize / 2, screenPos.y - iconSize, iconSize, iconSize);
 
-        fill(255); stroke(marker.color || '#ff0000'); strokeWeight(3); textAlign(CENTER, BOTTOM); textSize(18);
-        let displayName = marker.name || (marker.isSearch ? "" : "Custom Pin");
+        fill(255); stroke(waypoint.color || '#ff0000'); strokeWeight(3); textAlign(CENTER, BOTTOM); textSize(18);
+        let displayName = waypoint.name || (waypoint.isSearch ? "" : "Custom Pin");
         if (displayName) text(displayName, screenPos.x, screenPos.y - iconSize - 4);
-        if (marker.showCoords) { textSize(14); textAlign(CENTER, TOP); text(`${Math.round(mx)}, ${Math.round(mz)}`, screenPos.x, screenPos.y + 4); }
+        if (waypoint.showCoords) { textSize(14); textAlign(CENTER, TOP); text(`${Math.round(mx)}, ${Math.round(mz)}`, screenPos.x, screenPos.y + 4); }
     });
     pop();
 }
@@ -109,9 +109,9 @@ function drawPinsAndLabels() {
 function mousePressed(event) {
     if (event.target.tagName.toLowerCase() === 'canvas') {
         searchClickX = mouseX; searchClickY = mouseY;
-        if (activeHoveredMarker && mouseButton === LEFT) {
-            let mx = currentDimension === 1 ? activeHoveredMarker.x / 8 : activeHoveredMarker.x;
-            let mz = currentDimension === 1 ? activeHoveredMarker.z / 8 : activeHoveredMarker.z;
+        if (activeHoveredWaypoint && mouseButton === LEFT) {
+            let mx = currentDimension === 1 ? activeHoveredWaypoint.x / 8 : activeHoveredWaypoint.x;
+            let mz = currentDimension === 1 ? activeHoveredWaypoint.z / 8 : activeHoveredWaypoint.z;
             targetCam = { x: mx, y: mz, zoom: 1.1 };
             return;
         } else if (mouseButton === LEFT) {
@@ -121,7 +121,10 @@ function mousePressed(event) {
                 lastClusterCamX = camera.x; lastClusterCamY = camera.y; lastClusterZoom = camera.zoom; lastClusterDim = currentDimension;
                 for (let cluster of cachedClusters) {
                     if (cluster.count < 2 && wMouse.x >= cluster.x - iconHitbox / 2 && wMouse.x <= cluster.x + iconHitbox / 2 && wMouse.y >= cluster.z - iconHitbox && wMouse.y <= cluster.z) {
-                        targetCam = { x: cluster.x, y: cluster.z, zoom: 1.1 }; return;
+                        targetCam = { x: cluster.x, y: cluster.z, zoom: 1.1 };
+                        searchState = 'result';
+                        loadAtlasResult(findViaUUID(cluster.original.uuid));
+                        return;
                     }
                 }
             }
@@ -140,9 +143,9 @@ function mouseReleased(event) {
 
     if (isActuallyAClick && event.target.tagName.toLowerCase() === 'canvas' && mouseButton === LEFT) {
         const wMouse = getWorldMouse(), currentScale = 1 / camera.zoom, iconHitbox = 32 * currentScale;
-        if (activeHoveredMarker) {
-            let mx = currentDimension === 1 ? activeHoveredMarker.x / 8 : activeHoveredMarker.x;
-            let mz = currentDimension === 1 ? activeHoveredMarker.z / 8 : activeHoveredMarker.z;
+        if (activeHoveredWaypoint) {
+            let mx = currentDimension === 1 ? activeHoveredWaypoint.x / 8 : activeHoveredWaypoint.x;
+            let mz = currentDimension === 1 ? activeHoveredWaypoint.z / 8 : activeHoveredWaypoint.z;
             targetCam = { x: mx, y: mz, zoom: 1.1 };
             return;
         }
@@ -178,8 +181,8 @@ window.addEventListener('keydown', (e) => {
     if (document.activeElement && document.activeElement.tagName === 'INPUT') return;
     if ((e.ctrlKey || e.metaKey) && e.key === 'f') { e.preventDefault(); searchInput.focus(); searchInput.select(); }
     if (e.shiftKey && e.key.toLowerCase() === 'g') debugGrid = !debugGrid;
-    if ((e.key === 'Delete' || e.key === 'Backspace') && activeHoveredMarker) {
-        tempMarkers = tempMarkers.filter(m => m !== activeHoveredMarker); activeHoveredMarker = null; updateMapURL();
+    if ((e.key === 'Delete' || e.key === 'Backspace') && activeHoveredWaypoint) {
+        tempWaypoints = tempWaypoints.filter(m => m !== activeHoveredWaypoint); activeHoveredWaypoint = null; updateMapURL();
     }
-    if (e.key.toLowerCase() === 'e' && activeHoveredMarker) { e.preventDefault(); openMarkerEditDialog(activeHoveredMarker); }
+    if (e.key.toLowerCase() === 'e' && activeHoveredWaypoint) { e.preventDefault(); openWaypointEditDialog(activeHoveredWaypoint); }
 });
