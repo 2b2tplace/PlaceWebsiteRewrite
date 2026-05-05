@@ -321,7 +321,7 @@ ui {
   cursor: pointer;
 }
 
-.layers .label .close {
+.layers .label .close, .layersettings .close {
   display: flex;
   align-items: center;
   margin-left: auto;
@@ -369,6 +369,7 @@ ui:has(.layers:not(.open)) .layersettings {
   display: flex;
   align-items: center;
   gap: 10px;
+  width: 100%;
 }
 
 .layersettings .setting {

@@ -62,8 +62,10 @@ function openWaypointEditDialog(waypoint = null) {
 function configureLayerSettings(layerName, layer) {
     currentLayerSettings = layerName; layersettings.innerHTML = '';
     const layersettingslabel = document.createElement("div"); layersettingslabel.className = "label";
-    const layersettingicon = createIcon('settings');
-    layersettingslabel.append(layersettingicon, `${layerName} Settings`); layersettings.append(layersettingslabel);
+    const close = createIcon('close');
+    close.classList.add('close');
+    close.addEventListener('click', () => { layersettings.classList.remove('open') });
+    layersettingslabel.append(createIcon(layer.icon), `${layerName} Settings`, close); layersettings.append(layersettingslabel);
 
     if (layer.type !== "background") {
         let setting = document.createElement("div"); setting.className = "setting";

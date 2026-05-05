@@ -41,7 +41,7 @@ let layers = {
 		defaultVisible: true,
 		type: 'ui',
 		settings: {
-			"Show All Pins": { icon: "pin", type: "toggle", value: false, defaultValue: false },
+			"Show All Waypoints": { icon: "pin", type: "toggle", value: false, defaultValue: false },
 			"Hide Atlas Waypoints": { icon: "world", type: "toggle", value: false, defaultValue: false },
 			"Hide Temp Waypoints": { icon: "person", type: "toggle", value: false, defaultValue: false }
 		}
