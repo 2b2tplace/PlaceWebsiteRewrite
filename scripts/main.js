@@ -8,6 +8,7 @@ function setup() {
     imageMode(CORNER);
 
     setupAPI();
+    setupUI();
     setupUIEvents();
     setupRightClickMenu();
     loadStateFromURL();

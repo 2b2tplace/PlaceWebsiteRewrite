@@ -21,6 +21,85 @@ function setupAPI() {
     pinEnd = loadImage('/icon/worldPinEnd.png');
 }
 
+function setupUI() {
+    const ui = document.querySelector('ui');
+    ui.innerHTML = '';
+
+    const el = (tag, props = {}, children = []) => {
+        const e = document.createElement(tag);
+        Object.assign(e, props);
+        if (props.class) e.className = props.class;
+        children.forEach(c => e.append(typeof c === 'string' ? c : c));
+        return e;
+    };
+
+    const row = (id, icon, text, textId) => el('div', { class: 'coordinates ui noFloat', id }, [createIcon(icon), el('div', { id: textId }, [text])]);
+    const toggle = (id, icon, label) => el('div', { class: 'ui noFloat', id }, [createIcon(icon), ` ${label}`]);
+    const item = (id, icon, label) => el('div', { class: 'item', id }, [createIcon(icon), ` ${label}`]);
+
+    ui.append(
+        el('div', { class: 'searchBar ui', id: 'searchBar' }, [createIcon('search'), el('input', { type: 'text', placeholder: 'Search', id: 'search' }), createIcon('filter'), createIcon('more')]),
+        el('div', { class: 'searchPanel ui', id: 'searchPanel' }),
+        el('div', { class: 'bottomLeft' }, [
+            el('div', { class: 'layersettings ui', id: 'layersettings' }, [el('div', { class: 'label' }, [createIcon('settings'), el('div', { id: 'layersettingslabel' }, ['Layer Settings'])])]),
+            el('div', { class: 'layers ui', id: 'layers' }, [el('div', { class: 'label' }, [el('div', { class: 'title', id: 'layerstitle' }, [createIcon('layers'), ' Layers']), el('div', { class: 'close', id: 'layerclose' }, [createIcon('close')])])])
+        ]),
+        el('div', { class: 'topRight' }, [
+            row('overworldCoordinates', 'world', '0 0', 'coordinateText'),
+            row('netherCoordinates', 'obsidian', '0 0', 'coordinateTextNether'),
+            el('div', { class: 'goHome ui noFloat iconButton', onclick: () => targetCam = { x: 0, y: 0, zoom: 0.004 } }, [createIcon('centre')])
+        ]),
+        el('div', { class: 'bottomMiddle' }, [toggle('overworldToggle', 'world', 'Overworld'), toggle('netherToggle', 'obsidian', 'Nether'), toggle('endToggle', 'enderchest', 'End')]),
+        el('div', { class: 'rightClick ui', id: 'rightClickContext' }, [
+            item('copycoordinates', 'copy', 'Copy Coordinates'), item('copylink', 'link', 'Share View'), el('div', { class: 'divider' }),
+            item('searchhere', 'search', 'Search Here'), el('div', { class: 'divider' }),
+            item('placewaypoint', 'addpin', 'Place Waypoint'), item('editwaypoint', 'settings', 'Edit Waypoint'), item('removewaypoint', 'removepin', 'Remove Waypoint')
+        ]),
+        el('div', { class: 'copyLinkScreen', id: 'copyLinkScreen' }, [
+            el('div', { class: 'copyLinkDialogue ui noFloat' }, [
+                el('div', { class: 'heading' }, [
+                    el('div', { class: 'title', id: 'copyLinkTitle' }, ['Share', createIcon('close')]),
+                    el('div', { class: 'tablist' }, [el('div', { class: 'tab selected' }, [createIcon('link'), ' Send link']), el('div', { class: 'tab' }, [createIcon('layers'), ' Embed map'])])
+                ]),
+                el('div', { class: 'body', id: 'copyLinkBody' }),
+                el('div', { class: 'copyLink' }, [
+                    el('input', { readOnly: true, id: 'copyLinkText' }),
+                    el('button', { class: 'copyLinkButton', id: 'copyLinkButton' }, [el('div', { class: 'popup', id: 'copyPopup' }, ['Copied!']), createIcon('copy'), ' Copy Link'])
+                ])
+            ])
+        ]),
+        el('div', { class: 'waypointDialogueScreen', id: 'waypointDialogueScreen' }, [
+            el('div', { class: 'waypointDialogue ui noFloat' }, [
+                el('div', { class: 'heading' }, [el('div', { class: 'title' }, ['Place Waypoint', el('span', { id: 'closeWaypointDialog' }, [createIcon('close')])])]),
+                el('div', { class: 'body' }, [
+                    el('input', { class: 'waypointNameInput', placeholder: 'Waypoint Name', id: 'waypointNameInput' }),
+                    el('div', { class: 'waypointCoords' }, [
+                        ...['Overworld', 'Nether'].map(dim => el('div', { class: 'coordInput' }, [el('label', {}, [dim]), el('input', { type: 'number', placeholder: 'X', id: `waypoint${dim}X` }), el('input', { type: 'number', placeholder: 'Z', id: `waypoint${dim}Z` })]))
+                    ]),
+                    el('div', { id: 'waypointColours' }), el('div', { id: 'showCoords' })
+                ]),
+                el('button', { class: 'saveWaypoint', id: 'saveWaypoint' }, [createIcon('pin'), ' Save'])
+            ])
+        ]),
+        el('div', { class: 'picker ui' }, [
+            el('div', { class: 'heading' }, [
+                el('div', { class: 'title' }, ['Picker', createIcon('close')]),
+                el('div', { class: 'tablist' }, [el('div', { class: 'tab selected' }, [createIcon('chunkhighlights'), ' Grid']), el('div', { class: 'tab' }, [createIcon('on'), ' Sliders'])])
+            ]),
+            el('div', { class: 'body', id: 'grid' }, [el('img', { class: 'colourPaletteSelect', src: '/icon/paletteSelect.png' }), el('img', { class: 'colourPicker', src: '/icon/paletteGrid.png' }), el('div', { class: 'color-preview', id: 'grid-color-preview' })]),
+            el('div', { class: 'body', id: 'sliders' }, [
+                el('button', { id: 'toggleColorMode' }, ['Switch to HSV']),
+                ...['R', 'G', 'B'].map((l, i) => el('div', { class: 'slider-group' }, [
+                    el('span', { class: 'slider-label' }, [l]),
+                    el('div', { class: 'slider-track-container', id: `slider-${i + 1}-track` }, [el('img', { class: 'custom-slider-thumb', src: '/icon/rgbSliderThumb.png' })]),
+                    el('input', { type: 'number', class: 'slider-input', id: `slider-${i + 1}-input`, min: 0, max: 255 })
+                ])),
+                el('div', { class: 'color-preview', id: 'sliders-color-preview' })
+            ])
+        ])
+    );
+}
+
 function setupUIEvents() {
     const copycoords = document.getElementById('copycoordinates');
     copycoords.addEventListener("click", () => {
