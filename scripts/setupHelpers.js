@@ -103,7 +103,7 @@ function setupUI() {
 function setupUIEvents() {
     const copycoords = document.getElementById('copycoordinates');
     copycoords.addEventListener("click", () => {
-        navigator.clipboard.writeText(`${rightClickCoords.x}, ${rightClickCoords.z}`);
+        copyToClipboard(`${rightClickCoords.x}, ${rightClickCoords.z}`);
         document.getElementById('rightClickContext').classList.remove('open');
     });
 
