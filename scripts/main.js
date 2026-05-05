@@ -137,8 +137,19 @@ function mousePressed(event) {
             return;
         } else if (mouseButton === LEFT) {
             const wMouse = getWorldMouse(), currentScale = 1 / camera.zoom, iconHitbox = 32 * currentScale;
-            if (atlasLocations.length > 0) {
+            if (atlasLocations.length > 0 && !layers["Overlay"].settings["Hide Atlas Waypoints"].value) {
                 cachedClusters = getClusters();
+                lastClusterCamX = camera.x; lastClusterCamY = camera.y; lastClusterZoom = camera.zoom; lastClusterDim = currentDimension;
+                for (let cluster of cachedClusters) {
+                    if (cluster.count < 2 && wMouse.x >= cluster.x - iconHitbox / 2 && wMouse.x <= cluster.x + iconHitbox / 2 && wMouse.y >= cluster.z - iconHitbox && wMouse.y <= cluster.z) {
+                        targetCam = { x: cluster.x, y: cluster.z, zoom: 1.1 };
+                        searchState = 'result';
+                        loadAtlasResult(findViaUUID(cluster.original.uuid));
+                        return;
+                    }
+                }
+            } else if (layers["Overlay"].settings["Show All Waypoints"].value && !layers["Overlay"].settings["Hide Atlas Waypoints"].value) {
+                cachedClusters = getClusters(true);
                 lastClusterCamX = camera.x; lastClusterCamY = camera.y; lastClusterZoom = camera.zoom; lastClusterDim = currentDimension;
                 for (let cluster of cachedClusters) {
                     if (cluster.count < 2 && wMouse.x >= cluster.x - iconHitbox / 2 && wMouse.x <= cluster.x + iconHitbox / 2 && wMouse.y >= cluster.z - iconHitbox && wMouse.y <= cluster.z) {
