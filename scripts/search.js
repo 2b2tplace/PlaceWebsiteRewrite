@@ -227,19 +227,30 @@ function getDistanceFromCamera(loc) {
     return Math.sqrt(Math.pow(locX - camera.x, 2) + Math.pow(locZ - camera.y, 2));
 }
 
-function getClusters() {
+function getClusters(all = false) {
     let visibleLocations = [];
     const halfWidth = width / 2, halfHeight = height / 2, margin = 100 * (1 / camera.zoom);
     const viewLeft = camera.x - halfWidth / camera.zoom - margin, viewRight = camera.x + halfWidth / camera.zoom + margin;
     const viewTop = camera.y - halfHeight / camera.zoom - margin, viewBottom = camera.y + halfHeight / camera.zoom + margin;
 
-    for (let loc of atlasLocations) {
-        let x = loc.x, z = loc.z;
-        if (loc.dim === 0 && currentDimension === 1) { x /= 8; z /= 8; }
-        else if (loc.dim === 1 && currentDimension === 0) { x *= 8; z *= 8; }
-        else if (loc.dim !== currentDimension) continue;
+    if (all) {
+        for (let loc of allAtlasLocations) {
+            let x = loc.x, z = loc.z;
+            if (loc.dim === 0 && currentDimension === 1) { x /= 8; z /= 8; }
+            else if (loc.dim === 1 && currentDimension === 0) { x *= 8; z *= 8; }
+            else if (loc.dim !== currentDimension) continue;
 
-        if (x > viewLeft && x < viewRight && z > viewTop && z < viewBottom) visibleLocations.push({ x, z, original: loc });
+            if (x > viewLeft && x < viewRight && z > viewTop && z < viewBottom) visibleLocations.push({ x, z, original: loc });
+        }
+    } else {
+        for (let loc of atlasLocations) {
+            let x = loc.x, z = loc.z;
+            if (loc.dim === 0 && currentDimension === 1) { x /= 8; z /= 8; }
+            else if (loc.dim === 1 && currentDimension === 0) { x *= 8; z *= 8; }
+            else if (loc.dim !== currentDimension) continue;
+
+            if (x > viewLeft && x < viewRight && z > viewTop && z < viewBottom) visibleLocations.push({ x, z, original: loc });
+        }
     }
 
     let clusters = [];

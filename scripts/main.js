@@ -68,8 +68,26 @@ function update() {
 }
 
 function drawPinsAndLabels() {
-    if (atlasLocations.length > 0) {
+    if (atlasLocations.length > 0 && !layers["Overlay"].settings["Hide Atlas Waypoints"].value) {
         cachedClusters = getClusters();
+        push();
+        for (let cluster of cachedClusters) {
+            let screenPos = worldToScreen(cluster.x, cluster.z);
+            if (cluster.count > 1) {
+                fill(40, 150, 255, 200); stroke(255); strokeWeight(2);
+                ellipse(screenPos.x, screenPos.y, (25 + Math.min(cluster.count, 20)));
+                fill(255); noStroke(); textAlign(CENTER, CENTER); textSize(16);
+                text(cluster.count, screenPos.x, screenPos.y);
+            } else {
+                let loc = cluster.original, iconSize = 32, img = (loc.name == 'End Portal') ? pinEnd : pinIcon;
+                if (img && img.width > 0) image(img, screenPos.x - iconSize / 2, screenPos.y - iconSize, iconSize, iconSize);
+                fill(255); stroke(0); strokeWeight(3); textAlign(CENTER, BOTTOM); textSize(18);
+                text(loc.name, screenPos.x, screenPos.y - iconSize - 4);
+            }
+        }
+        pop();
+    } else if (layers["Overlay"].settings["Show All Waypoints"].value && !layers["Overlay"].settings["Hide Atlas Waypoints"].value) {
+        cachedClusters = getClusters(true);
         push();
         for (let cluster of cachedClusters) {
             let screenPos = worldToScreen(cluster.x, cluster.z);
@@ -90,19 +108,21 @@ function drawPinsAndLabels() {
 
     push();
     tempWaypoints.forEach(waypoint => {
-        let mDim = waypoint.dim !== undefined ? waypoint.dim : 0;
-        if ((mDim === 2) !== (currentDimension === 2)) return;
+        if (!layers["Overlay"].settings["Hide Temp Waypoints"].value) {
+            let mDim = waypoint.dim !== undefined ? waypoint.dim : 0;
+            if ((mDim === 2) !== (currentDimension === 2)) return;
 
-        let mx = waypoint.x, mz = waypoint.z;
-        if (currentDimension === 1) { mx /= 8; mz /= 8; }
+            let mx = waypoint.x, mz = waypoint.z;
+            if (currentDimension === 1) { mx /= 8; mz /= 8; }
 
-        let screenPos = worldToScreen(mx, mz), iconSize = 32, img = waypointIcons[waypoint.color];
-        image(img, screenPos.x - iconSize / 2, screenPos.y - iconSize, iconSize, iconSize);
+            let screenPos = worldToScreen(mx, mz), iconSize = 32, img = waypointIcons[waypoint.color];
+            image(img, screenPos.x - iconSize / 2, screenPos.y - iconSize, iconSize, iconSize);
 
-        fill(255); stroke(waypoint.color || '#ff0000'); strokeWeight(3); textAlign(CENTER, BOTTOM); textSize(18);
-        let displayName = waypoint.name || (waypoint.isSearch ? "" : "Custom Pin");
-        if (displayName) text(displayName, screenPos.x, screenPos.y - iconSize - 4);
-        if (waypoint.showCoords) { textSize(14); textAlign(CENTER, TOP); text(`${Math.round(mx)}, ${Math.round(mz)}`, screenPos.x, screenPos.y + 4); }
+            fill(255); stroke(waypoint.color || '#ff0000'); strokeWeight(3); textAlign(CENTER, BOTTOM); textSize(18);
+            let displayName = waypoint.name || (waypoint.isSearch ? "" : "Custom Pin");
+            if (displayName) text(displayName, screenPos.x, screenPos.y - iconSize - 4);
+            if (waypoint.showCoords) { textSize(14); textAlign(CENTER, TOP); text(`${Math.round(mx)}, ${Math.round(mz)}`, screenPos.x, screenPos.y + 4); }
+        }
     });
     pop();
 }
