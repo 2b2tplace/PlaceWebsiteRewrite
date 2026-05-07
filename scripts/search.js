@@ -72,6 +72,27 @@ function loadAtlasResult(location) {
         type.textContent = 'Structure';
     }
 
+    const buttons = document.createElement('div');
+    buttons.className = 'atlasResultButtons';
+    [['copy', 'Coordinates'], ['command', 'Vanilla'], ['commandAlt', 'PlaceViewer']].forEach(icon => {
+        const button = document.createElement('div');
+        button.className = 'atlasResultButton';
+        const label = document.createElement('div');
+        label.textContent = icon[1];
+        label.className = 'atlasResultButtonLabel';
+        if (icon[0] == 'copy') {
+            button.addEventListener('click', () => {
+                copyToClipboard(`${location.x}, ${location.z}`);
+            })
+        } else if (icon[0] == 'command') {
+            copyToClipboard(`/execute in minecraft:${location.dimId == 'overworld' ? 'overworld' : 'the_' + location.dimId} run tp @s ${location.x} ~ ${location.z}`)
+        } else {
+            copyToClipboard(`/tp ${location.x} ${location.z} ${location.dimId == 'end' ? 'the_end' : location.dimId}`)
+        }
+        button.append(createIcon(icon[0]), label)
+        buttons.append(button)
+    });
+
     const desc = document.createElement('div');
     desc.className = 'atlasResultDesc';
     desc.style.webkitLineClamp = '5';
@@ -87,7 +108,7 @@ function loadAtlasResult(location) {
     loc.className = 'atlasResultLocation';
     loc.append(createIcon('pin'), locCoords);
 
-    searchPanel.append(banner, title, type, loc, desc);
+    searchPanel.append(banner, title, type, buttons, loc, desc);
 
     desc.style.webkitLineClamp = 'unset';
     desc.style.lineClamp = 'unset';
@@ -96,8 +117,6 @@ function loadAtlasResult(location) {
     desc.style.webkitLineClamp = '5';
     desc.style.lineClamp = '5';
     desc.style.overflow = 'hidden';
-
-    console.log(descTotalHeight);
 
     if (descTotalHeight > 124) {
         const descReadMore = document.createElement('div');
