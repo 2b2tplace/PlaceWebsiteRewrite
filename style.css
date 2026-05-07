@@ -288,7 +288,7 @@ ui {
 
 .layers {
   width: 114px;
-  height: 46px;
+  height: 42px;
   flex-direction: column;
   align-items: baseline;
   gap: 6px;
@@ -311,7 +311,7 @@ ui {
 }
 
 .layers:not(.open) .title {
-  padding: 10px 15px;
+  padding: 8px 15px;
 }
 
 .layers .title {
