@@ -74,9 +74,13 @@ function setupUI() {
                 el('div', { class: 'body' }, [
                     el('input', { class: 'waypointNameInput', placeholder: 'Waypoint Name', id: 'waypointNameInput' }),
                     el('div', { class: 'waypointCoords' }, [
-                        ...['Overworld', 'Nether'].map(dim => el('div', { class: 'coordInput' }, [el('label', {}, [dim]), el('input', { type: 'number', placeholder: 'X', id: `waypoint${dim}X` }), el('input', { type: 'number', placeholder: 'Z', id: `waypoint${dim}Z` })]))
+                        ...['Overworld', 'Nether'].map(dim => el('div', { class: 'coordInput', id: `coords${dim}` }, [
+                            el('label', { id: `label${dim}` }, [dim]),
+                            el('input', { type: 'number', placeholder: 'X', id: `waypoint${dim}X` }),
+                            el('input', { type: 'number', placeholder: 'Z', id: `waypoint${dim}Z` })
+                        ]))
                     ]),
-                    el('div', { id: 'waypointColours' }), el('div', { id: 'showCoords' })
+                    el('div', { class: 'waypointColours', id: 'waypointColours' }), el('div', { class: 'showCoords', id: 'showCoords' })
                 ]),
                 el('button', { class: 'saveWaypoint', id: 'saveWaypoint' }, [createIcon('pin'), ' Save'])
             ])

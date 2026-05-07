@@ -10,8 +10,18 @@ function openWaypointEditDialog(waypoint = null) {
     const closeBtn = document.getElementById('closeWaypointDialog');
     if (closeBtn) closeBtn.onclick = () => document.getElementById('waypointDialogueScreen').classList.remove('open');
 
-    const owX = document.getElementById('waypointOverworldX'), owZ = document.getElementById('waypointOverworldZ');
-    const neX = document.getElementById('waypointNetherX'), neZ = document.getElementById('waypointNetherZ');
+    const owInput = document.getElementById('coordsOverworld'), owLabel = document.getElementById('labelOverworld'), owX = document.getElementById('waypointOverworldX'), owZ = document.getElementById('waypointOverworldZ');
+    const neInput = document.getElementById('coordsNether'), neLabel = document.getElementById('labelNether'), neX = document.getElementById('waypointNetherX'), neZ = document.getElementById('waypointNetherZ');
+    
+    const isEnd = (waypoint && waypoint.dim === 2) || (!waypoint && currentDimension === 2);
+    if (isEnd) {
+        owLabel.textContent = "End";
+        neInput.style.display = "none";
+    } else {
+        owLabel.textContent = "Overworld";
+        neInput.style.display = "flex";
+    }
+
     let baseX = waypoint ? waypoint.x : (currentDimension === 1 ? rightClickCoords.x * 8 : rightClickCoords.x);
     let baseZ = waypoint ? waypoint.z : (currentDimension === 1 ? rightClickCoords.z * 8 : rightClickCoords.z);
 
