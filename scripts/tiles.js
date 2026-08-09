@@ -2,6 +2,15 @@ function tileKey(tileX, tileY, lod, dim) {
     return (BigInt(tileX) & 0x1FFFFFFn) << 35n | (BigInt(tileY) & 0x1FFFFFFn) << 10n | (BigInt(lod) & 0x7Fn) << 3n | (BigInt(dim) & 0x7n);
 }
 
+function floorDiv(a, b) {
+    const q = Math.trunc(a / b);
+    const r = a % b;
+    if (r !== 0 && (r > 0) !== (b > 0)) {
+        return q - 1;
+    }
+    return q;
+}
+
 async function loadTile(thisLod, tx, ty, allowLoading = true) {
     const key = tileKey(tx, ty, thisLod, currentDimension);
     let tile = tileCache[key];
@@ -26,16 +35,17 @@ async function loadTile(thisLod, tx, ty, allowLoading = true) {
 
     inFlightRequests.add(key);
     try {
-        const sx = (tx / 32) >> 0;
-        const sy = (ty / 32) >> 0;
+        const sx = floorDiv(tx, 32);
+        const sy = floorDiv(ty, 32);
         const fetchPromises = [];
         const fetchBase = layers["World"].visible && !tile.fetchedBase;
         const fetchOverlay = layers["Obsidian"].visible && !tile.fetchedOverlay;
         const fetchNewChunks = layers["New Chunks"].visible && !tile.fetchedNewChunks;
 
-        if (fetchBase) fetchPromises.push(fetch(`/tiles/base/${thisLod}/${currentDimension}/${sx}/${sy}/t.${tx}.${ty}.webp`, { signal: controller.signal })); else fetchPromises.push(Promise.resolve(null));
-        if (fetchOverlay) fetchPromises.push(fetch(`/tiles/overlay/${thisLod}/${currentDimension}/${sx}/${sy}/t.${tx}.${ty}.webp`, { signal: controller.signal })); else fetchPromises.push(Promise.resolve(null));
-        if (fetchNewChunks) fetchPromises.push(fetch(`/tiles/newchunks/${thisLod}/${currentDimension}/${sx}/${sy}/t.${tx}.${ty}.webp`, { signal: controller.signal })); else fetchPromises.push(Promise.resolve(null));
+        const dimensionName = dimensionNames[currentDimension];
+        if (fetchBase) fetchPromises.push(fetch(`/tiles/base/${dimensionName}/${thisLod}/${sx}/${sy}/t.${tx}.${ty}.webp`, { signal: controller.signal })); else fetchPromises.push(Promise.resolve(null));
+        if (fetchOverlay) fetchPromises.push(fetch(`/tiles/overlay/${dimensionName}/${thisLod}/${sx}/${sy}/t.${tx}.${ty}.webp`, { signal: controller.signal })); else fetchPromises.push(Promise.resolve(null));
+        if (fetchNewChunks) fetchPromises.push(fetch(`/tiles/newchunks/${dimensionName}/${thisLod}/${sx}/${sy}/t.${tx}.${ty}.webp`, { signal: controller.signal })); else fetchPromises.push(Promise.resolve(null));
 
         const [resBase, resOverlay, resNewChunks] = await Promise.all(fetchPromises);
         let bitmapBase = tile.imgBase || null;

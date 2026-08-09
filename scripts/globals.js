@@ -17,6 +17,7 @@ let mouseScrollX = 0, mouseScrollY = 0;
 
 // Map and tiles
 let currentDimension = 0;
+const dimensionNames = ["overworld", "nether", "end"];
 let lod;
 let tileCache = {};
 let tilesToDraw = [];
